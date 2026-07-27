@@ -28,6 +28,28 @@ public sealed record Slot(int Index, string Label, string Text, bool AppendEnter
         }
     }
 
+    /// <summary>
+    /// 관리창에서 라벨 밑에 흐리게 보여줄 문장 미리보기.
+    ///
+    /// 개행과 탭은 공백으로 눕힌다. 좁은 칸에서 줄이 끊기면 오히려 읽기 어렵다.
+    /// 라벨이 없을 때는 비워 둔다. 그 경우 <see cref="DisplayName"/>이 이미 문장을 보여주므로
+    /// 같은 내용이 두 줄로 겹친다.
+    /// </summary>
+    public string Preview
+    {
+        get
+        {
+            if (IsEmpty || string.IsNullOrWhiteSpace(Label))
+                return string.Empty;
+
+            // 빈 항목을 버리면 연속된 줄바꿈이 공백 하나로 합쳐진다.
+            return string.Join(
+                    ' ',
+                    Text.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries))
+                .Trim();
+        }
+    }
+
     /// <summary>비어 있는 슬롯을 만든다.</summary>
     public static Slot Empty(int index) => new(index, string.Empty, string.Empty, false);
 }

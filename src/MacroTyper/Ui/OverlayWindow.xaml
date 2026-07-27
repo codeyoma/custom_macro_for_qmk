@@ -42,24 +42,38 @@
                             Width="116" Height="50" Margin="3"
                             CornerRadius="6"
                             Background="#17FFFFFF">
-                        <StackPanel Margin="8,6">
-                            <TextBlock x:Name="Number"
-                                       Text="{Binding Number}"
-                                       FontSize="10"
-                                       Foreground="#6BFFFFFF" />
-                            <TextBlock x:Name="Label"
-                                       Text="{Binding Label}"
-                                       FontSize="12"
-                                       Margin="0,1,0,0"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="#F2F2F0" />
-                        </StackPanel>
+                        <Grid>
+                            <StackPanel Margin="8,6">
+                                <TextBlock x:Name="Number"
+                                           Text="{Binding Number}"
+                                           FontSize="10"
+                                           Foreground="#6BFFFFFF" />
+                                <TextBlock x:Name="Label"
+                                           Text="{Binding Label}"
+                                           FontSize="12"
+                                           Margin="0,1,0,0"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="#F2F2F0" />
+                            </StackPanel>
+
+                            <!-- 삽입 후 Enter 가 붙는 슬롯. 어두운 판이라 밝은 점을 쓴다. -->
+                            <Ellipse x:Name="EnterDot"
+                                     Width="6" Height="6"
+                                     Fill="#D8FFFFFF"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Bottom"
+                                     Margin="0,0,6,6"
+                                     Visibility="Collapsed" />
+                        </Grid>
                     </Border>
 
                     <DataTemplate.Triggers>
                         <DataTrigger Binding="{Binding IsEmpty}" Value="True">
                             <Setter TargetName="Cell" Property="Background" Value="#08FFFFFF" />
                             <Setter TargetName="Number" Property="Foreground" Value="#42FFFFFF" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding AppendEnter}" Value="True">
+                            <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
                         </DataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>

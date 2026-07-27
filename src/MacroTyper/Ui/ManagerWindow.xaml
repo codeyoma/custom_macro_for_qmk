@@ -80,14 +80,19 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Margin="4" Height="76" Tag="{Binding Number}" Click="OnSlotClicked"
+                        <Button Margin="4" Height="96" Tag="{Binding Number}" Click="OnSlotClicked"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                                 Background="White" BorderBrush="#E4E4DE" BorderThickness="1">
                             <Grid>
                                 <StackPanel Margin="4">
                                     <TextBlock Text="{Binding Number}" FontSize="10" Foreground="#888780" />
                                     <TextBlock Text="{Binding Label}" FontSize="12" Margin="0,2,0,0"
-                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="40" />
+                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="32" />
+
+                                    <!-- 실제 삽입될 문장. 칸을 넘치면 잘라서 보여준다. -->
+                                    <TextBlock Text="{Binding Preview}" FontSize="10" Foreground="#9C9C96"
+                                               Margin="0,3,0,0" LineHeight="13"
+                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="39" />
                                 </StackPanel>
 
                                 <!-- 삽입 후 Enter 가 켜진 슬롯 표시. 꺼져 있으면 숨긴다. -->
