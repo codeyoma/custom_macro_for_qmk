@@ -12,6 +12,9 @@
     <!-- PerMonitorV2 DPI 인식과 asInvoker 권한을 선언한다. 오버레이 위치 계산에 필수. -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
+    <!-- 탐색기와 작업 표시줄에 보이는 exe 아이콘. scripts/make-icon.py 로 만든다. -->
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
+
     <!--
       Windows 밖(맥/리눅스)에서도 컴파일만은 되게 한다.
       참조 어셈블리를 내려받아 빌드하므로 실행은 못 하지만 컴파일 오류는 잡힌다.

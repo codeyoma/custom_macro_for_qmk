@@ -13,6 +13,21 @@
 #define SPLIT_MAX_CONNECTION_ERRORS 1
 #define SPLIT_CONNECTION_CHECK_TIMEOUT 3000
 
+// --- LED ---
+//
+// 켜 두면 색이 계속 흐르는 모드로 시작한다.
+// 애니메이션 목록은 keyboards/helix/info.json 에 이미 정의되어 있다
+// (breathing, cycle_left_right, cycle_pinwheel, multisplash, solid_splash).
+//
+// 이 값들은 첫 부팅 때만 쓰인다. 그 뒤로는 EEPROM 에 저장된 설정을 따르므로
+// 키보드에서 모드를 바꾸면 그게 유지된다.
+#define RGB_MATRIX_DEFAULT_MODE RGB_MATRIX_CYCLE_LEFT_RIGHT
+#define RGB_MATRIX_DEFAULT_SPD 60
+
+// 한쪽만 써도 LED 25개가 동시에 켜진다. USB 500mA 안에서 돌도록 밝기를 낮춰 잡는다.
+// (keyboard.json 의 max_brightness 150 이 상한이고 이건 시작값이다)
+#define RGB_MATRIX_DEFAULT_VAL 100
+
 // 주의: rules.mk 에 SPLIT_KEYBOARD = no 를 넣지 말 것.
 // MATRIX_ROWS 는 keyboard.json 에서 8로 산출된 채 남는데
 // split 이 꺼지면 MATRIX_ROWS_PER_HAND 가 4가 아니라 8이 되어

@@ -17,8 +17,13 @@ MOUSEKEY_ENABLE = no
 EXTRAKEY_ENABLE = no
 CONSOLE_ENABLE  = no
 
-# 한쪽만 쓰므로 OLED 와 RGB 를 켤 이유가 없다. 용량도 아낀다.
-OLED_ENABLE       = no
-RGB_MATRIX_ENABLE = no
+# LED 애니메이션을 쓴다.
+RGB_MATRIX_ENABLE = yes
+
+# OLED 는 끈 채로 둔다. 용량 문제만이 아니다.
+# keyboards/helix/helix.c 의 oled_task_kb() 가 RGB_MATRIX 가드 없이
+# rgb_matrix_get_*() 와 RGB_MATRIX_*_STEP 을 직접 부르기 때문에,
+# 둘의 조합에 따라 링크가 깨질 수 있다. 한쪽만 쓰는 이 구성에서는 OLED 가 필요 없다.
+OLED_ENABLE = no
 
 # LTO 는 keyboards/helix/info.json 의 build.lto 로 이미 켜져 있다.
