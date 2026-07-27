@@ -74,16 +74,31 @@
                         <Button Margin="4" Height="76" Tag="{Binding Number}" Click="OnSlotClicked"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                                 Background="White" BorderBrush="#E4E4DE" BorderThickness="1">
-                            <StackPanel Margin="4">
-                                <TextBlock Text="{Binding Number}" FontSize="10" Foreground="#888780" />
-                                <TextBlock Text="{Binding Label}" FontSize="12" Margin="0,2,0,0"
-                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="40" />
-                            </StackPanel>
+                            <Grid>
+                                <StackPanel Margin="4">
+                                    <TextBlock Text="{Binding Number}" FontSize="10" Foreground="#888780" />
+                                    <TextBlock Text="{Binding Label}" FontSize="12" Margin="0,2,0,0"
+                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="40" />
+                                </StackPanel>
+
+                                <!-- 삽입 후 Enter 가 켜진 슬롯 표시. 꺼져 있으면 숨긴다. -->
+                                <Ellipse x:Name="EnterDot"
+                                         Width="7" Height="7"
+                                         Fill="#1A1A18"
+                                         HorizontalAlignment="Right"
+                                         VerticalAlignment="Bottom"
+                                         Margin="0,0,5,5"
+                                         Visibility="Collapsed"
+                                         ToolTip="삽입 후 Enter" />
+                            </Grid>
                         </Button>
 
                         <DataTemplate.Triggers>
                             <DataTrigger Binding="{Binding IsEmpty}" Value="True">
                                 <Setter Property="Opacity" Value="0.55" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding AppendEnter}" Value="True">
+                                <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
                             </DataTrigger>
                         </DataTemplate.Triggers>
                     </DataTemplate>
