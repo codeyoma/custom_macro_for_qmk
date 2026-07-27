@@ -39,7 +39,7 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border x:Name="Cell"
-                            Width="116" Height="50" Margin="3"
+                            Width="124" Height="70" Margin="3"
                             CornerRadius="6"
                             Background="#17FFFFFF">
                         <Grid>
@@ -54,6 +54,17 @@
                                            Margin="0,1,0,0"
                                            TextTrimming="CharacterEllipsis"
                                            Foreground="#F2F2F0" />
+
+                                <!-- 실제 삽입될 문장. 넘치면 자른다. -->
+                                <TextBlock x:Name="Preview"
+                                           Text="{Binding Preview}"
+                                           FontSize="10"
+                                           Margin="0,3,0,0"
+                                           LineHeight="13"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxHeight="26"
+                                           Foreground="#7AFFFFFF" />
                             </StackPanel>
 
                             <!-- 삽입 후 Enter 가 붙는 슬롯. 어두운 판이라 밝은 점을 쓴다. -->
@@ -71,6 +82,10 @@
                         <DataTrigger Binding="{Binding IsEmpty}" Value="True">
                             <Setter TargetName="Cell" Property="Background" Value="#08FFFFFF" />
                             <Setter TargetName="Number" Property="Foreground" Value="#42FFFFFF" />
+                        </DataTrigger>
+                        <!-- 라벨이 없으면 제목 자리에 이미 문장이 나온다. 아래를 비워 자리를 돌려준다. -->
+                        <DataTrigger Binding="{Binding Preview}" Value="">
+                            <Setter TargetName="Preview" Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding AppendEnter}" Value="True">
                             <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
