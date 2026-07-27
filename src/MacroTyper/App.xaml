@@ -1,0 +1,67 @@
+<Application x:Class="MacroTyper.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Startup="OnStartup"
+             Exit="OnExit"
+             ShutdownMode="OnExplicitShutdown">
+    <!--
+        StartupUri 가 없다. 이 앱은 창 없이 트레이로 시작한다.
+        ShutdownMode 가 기본값(OnLastWindowClose)이면 오버레이를 숨기는 순간 프로세스가 죽는다.
+        종료는 트레이 메뉴에서만 일어난다.
+    -->
+
+    <Application.Resources>
+
+        <!-- 트레이 아이콘. .ico 파일 대신 벡터로 그려서 배율에 따라 흐려지지 않는다. -->
+        <DrawingImage x:Key="TrayConnected">
+            <DrawingImage.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#1D9E75">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="0,1,16,14" RadiusX="3" RadiusY="3" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="White">
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <RectangleGeometry Rect="3,4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="6.7,4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="10.4,4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="3,7.4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="6.7,7.4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="10.4,7.4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="3,10.8,10,2.2" RadiusX="0.6" RadiusY="0.6" />
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingImage.Drawing>
+        </DrawingImage>
+
+        <DrawingImage x:Key="TrayDisconnected">
+            <DrawingImage.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#8A8A85">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="0,1,16,14" RadiusX="3" RadiusY="3" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#E8E8E4">
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <RectangleGeometry Rect="3,4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="6.7,4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="10.4,4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="3,7.4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="6.7,7.4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="10.4,7.4,2.6,2.2" RadiusX="0.6" RadiusY="0.6" />
+                                <RectangleGeometry Rect="3,10.8,10,2.2" RadiusX="0.6" RadiusY="0.6" />
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingImage.Drawing>
+        </DrawingImage>
+
+    </Application.Resources>
+</Application>

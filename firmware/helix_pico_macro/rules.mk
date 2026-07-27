@@ -5,6 +5,11 @@
 # 이 프로그램의 핵심. 없으면 키보드가 PC로 아무 신호도 보내지 못한다.
 RAW_ENABLE = yes
 
+# VIA 와는 공존할 수 없다.
+# quantum/via.c 의 raw_hid_receive() 는 __attribute__((weak)) 가 아니라서
+# keymap.c 의 같은 이름 함수와 링크 단계에서 충돌한다(multiple definition).
+VIA_ENABLE = no
+
 # ATmega32U4 는 USB 엔드포인트와 플래시 용량이 모두 빠듯하다.
 # Raw HID 를 넣을 자리를 만들기 위해 쓰지 않는 기능을 끈다.
 # 이 키보드는 문장 삽입 전용 매크로패드라 아래 기능이 하나도 필요 없다.

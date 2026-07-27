@@ -56,6 +56,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 #ifdef RAW_ENABLE
 
+// 주의: raw_hid_send() 는 엔드포인트가 빌 때까지 기다린다.
+// 호스트 프로그램이 떠 있지 않으면 호출당 최대 10.2ms 블로킹된다
+// (tmk_core/protocol/lufa/lufa.c 의 send_report() 가 timeout 255 를 카운트다운한다).
+// 키를 누를 때 그만큼 지연되지만 키보드가 멈추지는 않는다.
 static void send_macro_packet(uint8_t cmd, uint8_t arg) {
     uint8_t msg[RAW_EPSIZE] = {0};
     msg[0] = MACRO_MAGIC;

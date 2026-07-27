@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MacroTyper</RootNamespace>
+    <AssemblyName>MacroTyper</AssemblyName>
+
+    <!-- PerMonitorV2 DPI 인식과 asInvoker 권한을 선언한다. 오버레이 위치 계산에 필수. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!--
+      Windows 밖(맥/리눅스)에서도 컴파일만은 되게 한다.
+      참조 어셈블리를 내려받아 빌드하므로 실행은 못 하지만 컴파일 오류는 잡힌다.
+      Windows 에서의 빌드에는 아무 영향이 없다.
+    -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      트레이 아이콘.
+      H.NotifyIcon.Wpf 는 쓰지 않는다. 최신 안정판 2.4.1 이 lib/net10.0-windows7.0 과
+      net462 만 담고 있어 net8.0-windows 에서 복원되지 않는다.
+      Hardcodet 2.0.1 은 net8.0-windows7.0 자산을 명시적으로 포함한다.
+    -->
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MacroTyper.Core\MacroTyper.Core.csproj" />
+  </ItemGroup>
+
+</Project>

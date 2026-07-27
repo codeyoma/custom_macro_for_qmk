@@ -1,0 +1,68 @@
+<Window x:Class="MacroTyper.Ui.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MacroTyper 치트시트"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="Manual"
+        Focusable="False"
+        IsTabStop="False">
+
+    <!--
+        ShowInTaskbar 를 일부러 지정하지 않는다.
+        WS_EX_NOACTIVATE 와 WS_EX_TOOLWINDOW 로 작업 표시줄과 Alt+Tab 제외는 이미 달성된다.
+        ShowInTaskbar="False" 를 주면 WPF 가 숨은 소유자 창을 따로 만드는데,
+        그 창에 TOPMOST 가 없어서 오히려 z-order 가 어긋난다.
+
+        WindowStyle 은 런타임에 바꾸지 않는다. 바꾸는 순간 WPF 가 WS_EX_TOOLWINDOW 를 지워 버린다.
+    -->
+
+    <Border Background="#F0181818"
+            CornerRadius="12"
+            BorderBrush="#24FFFFFF"
+            BorderThickness="1"
+            Padding="16">
+
+        <ItemsControl x:Name="Cells">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Rows="4" Columns="6" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border x:Name="Cell"
+                            Width="116" Height="50" Margin="3"
+                            CornerRadius="6"
+                            Background="#17FFFFFF">
+                        <StackPanel Margin="8,6">
+                            <TextBlock x:Name="Number"
+                                       Text="{Binding Number}"
+                                       FontSize="10"
+                                       Foreground="#6BFFFFFF" />
+                            <TextBlock x:Name="Label"
+                                       Text="{Binding Label}"
+                                       FontSize="12"
+                                       Margin="0,1,0,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="#F2F2F0" />
+                        </StackPanel>
+                    </Border>
+
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                            <Setter TargetName="Cell" Property="Background" Value="#08FFFFFF" />
+                            <Setter TargetName="Number" Property="Foreground" Value="#42FFFFFF" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Border>
+</Window>
