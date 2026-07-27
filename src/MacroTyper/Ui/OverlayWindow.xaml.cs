@@ -64,8 +64,8 @@ public partial class OverlayWindow : Window
             _appliedRotation = rotation;
         }
 
-        Cells.ItemsSource = SlotGrid.Order(rotation)
-            .Select(index => OverlayCell.From(slots[index]))
+        Cells.ItemsSource = SlotGrid.Cells(rotation)
+            .Select(cell => OverlayCell.From(cell, slots))
             .ToArray();
 
         UpdateLayout();
@@ -105,7 +105,8 @@ public partial class OverlayWindow : Window
 
     private void OnCellClicked(object sender, MouseButtonEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: OverlayCell cell })
+        // 치트시트 키 자리와 빈틈은 누를 것이 없다.
+        if (sender is FrameworkElement { DataContext: OverlayCell { Kind: GridCellKind.Slot } cell })
             SlotActivated?.Invoke(this, cell.Number - 1);
     }
 

@@ -114,6 +114,20 @@
                         <DataTrigger Binding="{Binding Preview}" Value="">
                             <Setter TargetName="Preview" Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
+
+                        <!-- 키가 없는 자리. 칸은 차지하되 보이지 않아야 실물과 모양이 맞는다. -->
+                        <DataTrigger Binding="{Binding Kind}" Value="Blank">
+                            <Setter TargetName="Cell" Property="Visibility" Value="Hidden" />
+                        </DataTrigger>
+
+                        <!-- 지금 누르고 있는 그 키. 번호가 없으므로 감춘다. -->
+                        <DataTrigger Binding="{Binding Kind}" Value="CheatKey">
+                            <Setter TargetName="Cell" Property="Background" Value="#2E9E7A" />
+                            <Setter TargetName="Cell" Property="Cursor" Value="Arrow" />
+                            <Setter TargetName="Number" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="Label" Property="Foreground" Value="#FFFFFF" />
+                            <Setter TargetName="Label" Property="VerticalAlignment" Value="Center" />
+                        </DataTrigger>
                         <DataTrigger Binding="{Binding AppendEnter}" Value="True">
                             <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
                         </DataTrigger>

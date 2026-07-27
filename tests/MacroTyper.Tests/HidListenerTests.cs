@@ -34,15 +34,20 @@ public class HidListenerTests
         Assert.False(listener.IsConnected);
     }
 
+    /// <summary>
+    /// 연결 여부는 단언하지 않는다.
+    /// VID/PID 로 못 찾으면 usage 만으로 다시 찾도록 되어 있어서,
+    /// 개발 기계에 진짜 매크로패드가 꽂혀 있으면 이 리스너도 그것을 잡는다.
+    /// 여기서 보는 것은 "장치를 찾든 못 찾든 수신 루프가 조용히 돈다"는 것뿐이다.
+    /// </summary>
     [Fact]
-    public void Start_WithNoDeviceAttached_DoesNotReportConnected()
+    public void Start_ThenLetTheLoopRun_DoesNotThrow()
     {
         using var listener = CreateListener();
 
         listener.Start();
         Thread.Sleep(100);
-
-        Assert.False(listener.IsConnected);
+        listener.Stop();
     }
 
     [Fact]

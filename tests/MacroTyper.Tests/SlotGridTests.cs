@@ -4,15 +4,23 @@ namespace MacroTyper.Tests;
 
 public class SlotGridTests
 {
-    /// <summary>회전된 격자에서 화면 (row, column) 자리에 오는 슬롯 번호(1부터).</summary>
-    private static int NumberAt(GridRotation rotation, int row, int column) =>
-        SlotGrid.SlotAt(rotation, row, column) + 1;
+    /// <summary>회전된 격자의 그 자리에 놓인 슬롯 번호(1부터). 슬롯이 아니면 실패한다.</summary>
+    private static int NumberAt(GridRotation rotation, int row, int column)
+    {
+        GridCell cell = SlotGrid.CellAt(rotation, row, column);
+
+        Assert.Equal(GridCellKind.Slot, cell.Kind);
+        return cell.SlotIndex + 1;
+    }
+
+    private static GridCellKind KindAt(GridRotation rotation, int row, int column) =>
+        SlotGrid.CellAt(rotation, row, column).Kind;
 
     [Theory]
-    [InlineData(GridRotation.None, 4, 6)]
-    [InlineData(GridRotation.Half, 4, 6)]
-    [InlineData(GridRotation.Clockwise90, 6, 4)]
-    [InlineData(GridRotation.CounterClockwise90, 6, 4)]
+    [InlineData(GridRotation.None, 4, 7)]
+    [InlineData(GridRotation.Half, 4, 7)]
+    [InlineData(GridRotation.Clockwise90, 7, 4)]
+    [InlineData(GridRotation.CounterClockwise90, 7, 4)]
     public void SizeFor_SwapsRowsAndColumnsOnQuarterTurns(GridRotation rotation, int rows, int columns)
     {
         Assert.Equal((rows, columns), SlotGrid.SizeFor(rotation));
@@ -29,7 +37,7 @@ public class SlotGridTests
     }
 
     /// <summary>
-    /// 어떤 방향이든 24개 슬롯이 정확히 한 번씩 나와야 한다.
+    /// 어떤 방향이든 문장 24개가 정확히 한 번씩 나와야 한다.
     /// 하나라도 빠지면 그 문장은 화면에서 영영 볼 수 없게 된다.
     /// </summary>
     [Theory]
@@ -37,73 +45,112 @@ public class SlotGridTests
     [InlineData(GridRotation.Clockwise90)]
     [InlineData(GridRotation.Half)]
     [InlineData(GridRotation.CounterClockwise90)]
-    public void Order_ContainsEverySlotExactlyOnce(GridRotation rotation)
+    public void Cells_ContainEverySlotExactlyOnce(GridRotation rotation)
     {
-        var order = SlotGrid.Order(rotation);
+        var slots = SlotGrid.Cells(rotation)
+            .Where(c => c.Kind == GridCellKind.Slot)
+            .Select(c => c.SlotIndex)
+            .Order();
 
-        Assert.Equal(MacroProtocol.SlotCount, order.Count);
-        Assert.Equal(Enumerable.Range(0, MacroProtocol.SlotCount), order.Order());
+        Assert.Equal(Enumerable.Range(0, MacroProtocol.SlotCount), slots);
+    }
+
+    /// <summary>치트시트 키는 어느 방향에서든 딱 하나다.</summary>
+    [Theory]
+    [InlineData(GridRotation.None)]
+    [InlineData(GridRotation.Clockwise90)]
+    [InlineData(GridRotation.Half)]
+    [InlineData(GridRotation.CounterClockwise90)]
+    public void Cells_ContainExactlyOneCheatKey(GridRotation rotation)
+    {
+        Assert.Single(SlotGrid.Cells(rotation), c => c.Kind == GridCellKind.CheatKey);
+    }
+
+    /// <summary>맨 아랫줄만 튀어나와 있으므로 위 세 줄에 빈틈이 셋 생긴다.</summary>
+    [Theory]
+    [InlineData(GridRotation.None)]
+    [InlineData(GridRotation.Clockwise90)]
+    [InlineData(GridRotation.Half)]
+    [InlineData(GridRotation.CounterClockwise90)]
+    public void Cells_ContainThreeBlanks(GridRotation rotation)
+    {
+        Assert.Equal(3, SlotGrid.Cells(rotation).Count(c => c.Kind == GridCellKind.Blank));
+    }
+
+    [Theory]
+    [InlineData(GridRotation.None)]
+    [InlineData(GridRotation.Clockwise90)]
+    [InlineData(GridRotation.Half)]
+    [InlineData(GridRotation.CounterClockwise90)]
+    public void Cells_FillTheWholeGrid(GridRotation rotation)
+    {
+        (int rows, int columns) = SlotGrid.SizeFor(rotation);
+
+        Assert.Equal(rows * columns, SlotGrid.Cells(rotation).Count);
+    }
+
+    // --- 돌리지 않은 실물 배치 ---
+
+    [Fact]
+    public void CellAt_WithoutRotation_PutsCheatKeyAtBottomLeft()
+    {
+        Assert.Equal(GridCellKind.CheatKey, KindAt(GridRotation.None, 3, 0));
     }
 
     [Fact]
-    public void Order_WithoutRotation_IsPlainSequence()
+    public void CellAt_WithoutRotation_LeavesLeftColumnBlankAboveCheatKey()
     {
-        Assert.Equal(Enumerable.Range(0, MacroProtocol.SlotCount), SlotGrid.Order(GridRotation.None));
+        Assert.Equal(GridCellKind.Blank, KindAt(GridRotation.None, 0, 0));
+        Assert.Equal(GridCellKind.Blank, KindAt(GridRotation.None, 1, 0));
+        Assert.Equal(GridCellKind.Blank, KindAt(GridRotation.None, 2, 0));
     }
 
-    /// <summary>돌리지 않으면 왼쪽 위가 1번, 오른쪽 아래가 24번이다.</summary>
+    /// <summary>슬롯은 왼쪽 열을 건너뛰고 두 번째 열부터 시작한다.</summary>
     [Fact]
-    public void SlotAt_WithoutRotation_MatchesPhysicalLayout()
+    public void CellAt_WithoutRotation_StartsSlotsAtSecondColumn()
     {
-        Assert.Equal(1, NumberAt(GridRotation.None, 0, 0));
-        Assert.Equal(6, NumberAt(GridRotation.None, 0, 5));
-        Assert.Equal(19, NumberAt(GridRotation.None, 3, 0));
-        Assert.Equal(24, NumberAt(GridRotation.None, 3, 5));
+        Assert.Equal(1, NumberAt(GridRotation.None, 0, 1));
+        Assert.Equal(6, NumberAt(GridRotation.None, 0, 6));
+        Assert.Equal(19, NumberAt(GridRotation.None, 3, 1));
+        Assert.Equal(24, NumberAt(GridRotation.None, 3, 6));
     }
+
+    // --- 돌린 배치 ---
 
     /// <summary>
-    /// 키보드를 시계 방향으로 세우면 왼쪽 위 키(1번)가 오른쪽 위로 간다.
-    /// 화면도 같이 돌아야 눈에 보이는 자리와 손이 맞는다.
+    /// 시계 방향으로 세우면 왼쪽 아래 모서리가 왼쪽 위로 온다.
+    /// 치트시트 키가 거기 있으므로 세운 상태에서도 왼쪽 위 구석에 남는다.
     /// </summary>
     [Fact]
-    public void SlotAt_Clockwise90_MovesTopLeftToTopRight()
+    public void CellAt_Clockwise90_MovesCheatKeyToTopLeft()
     {
-        Assert.Equal(1, NumberAt(GridRotation.Clockwise90, 0, 3));
+        Assert.Equal(GridCellKind.CheatKey, KindAt(GridRotation.Clockwise90, 0, 0));
     }
 
     [Fact]
-    public void SlotAt_Clockwise90_MovesBottomLeftToTopLeft()
+    public void CellAt_Clockwise90_MovesFirstSlotToSecondRowRightEdge()
     {
-        // 원래 왼쪽 아래(19번)가 시계 방향 회전 후 왼쪽 위로 온다.
-        Assert.Equal(19, NumberAt(GridRotation.Clockwise90, 0, 0));
+        // 원래 (0,1) 자리의 1번이 시계 방향 회전 후 (1,3) 으로 간다.
+        Assert.Equal(1, NumberAt(GridRotation.Clockwise90, 1, 3));
     }
 
     [Fact]
-    public void SlotAt_Clockwise90_MovesTopRightToBottomRight()
+    public void CellAt_Half_MovesCheatKeyToTopRight()
     {
-        Assert.Equal(6, NumberAt(GridRotation.Clockwise90, 5, 3));
+        Assert.Equal(GridCellKind.CheatKey, KindAt(GridRotation.Half, 0, 6));
     }
 
     [Fact]
-    public void SlotAt_Half_MirrorsBothAxes()
+    public void CellAt_Half_MirrorsSlots()
     {
         Assert.Equal(24, NumberAt(GridRotation.Half, 0, 0));
-        Assert.Equal(19, NumberAt(GridRotation.Half, 0, 5));
-        Assert.Equal(6, NumberAt(GridRotation.Half, 3, 0));
         Assert.Equal(1, NumberAt(GridRotation.Half, 3, 5));
     }
 
-    /// <summary>반시계로 세우면 오른쪽 위 키(6번)가 왼쪽 위로 온다.</summary>
     [Fact]
-    public void SlotAt_CounterClockwise90_MovesTopRightToTopLeft()
+    public void CellAt_CounterClockwise90_MovesCheatKeyToBottomRight()
     {
-        Assert.Equal(6, NumberAt(GridRotation.CounterClockwise90, 0, 0));
-    }
-
-    [Fact]
-    public void SlotAt_CounterClockwise90_MovesTopLeftToBottomLeft()
-    {
-        Assert.Equal(1, NumberAt(GridRotation.CounterClockwise90, 5, 0));
+        Assert.Equal(GridCellKind.CheatKey, KindAt(GridRotation.CounterClockwise90, 6, 3));
     }
 
     /// <summary>90도를 네 번 돌리면 제자리로 돌아온다.</summary>
@@ -124,37 +171,19 @@ public class SlotGridTests
             seen);
     }
 
-    /// <summary>
-    /// 두 번 돌린 것은 180도와 같아야 한다. 회전 변환이 서로 어긋나지 않는지 본다.
-    /// </summary>
-    [Fact]
-    public void SlotAt_TwoQuarterTurns_EqualsHalfTurn()
-    {
-        for (int row = 0; row < 4; row++)
-        {
-            for (int column = 0; column < 6; column++)
-            {
-                // 시계 90도로 옮겨간 자리를 다시 시계 90도 돌리면 180도 자리와 같다.
-                int viaHalf = SlotGrid.SlotAt(GridRotation.Half, row, column);
-
-                // (row, column) 을 180도 돌린 좌표는 (3-row, 5-column) 이다.
-                int direct = SlotGrid.SlotAt(GridRotation.None, 3 - row, 5 - column);
-
-                Assert.Equal(direct, viaHalf);
-            }
-        }
-    }
-
     /// <summary>시계 90도와 반시계 90도는 서로 반대여야 한다.</summary>
     [Fact]
-    public void SlotAt_ClockwiseAndCounterClockwise_AreOpposites()
+    public void CellAt_ClockwiseAndCounterClockwise_AreOpposites()
     {
-        for (int row = 0; row < 6; row++)
+        (int rows, int columns) = SlotGrid.SizeFor(GridRotation.Clockwise90);
+
+        for (int row = 0; row < rows; row++)
         {
-            for (int column = 0; column < 4; column++)
+            for (int column = 0; column < columns; column++)
             {
-                int clockwise = SlotGrid.SlotAt(GridRotation.Clockwise90, row, column);
-                int counter = SlotGrid.SlotAt(GridRotation.CounterClockwise90, 5 - row, 3 - column);
+                GridCell clockwise = SlotGrid.CellAt(GridRotation.Clockwise90, row, column);
+                GridCell counter = SlotGrid.CellAt(
+                    GridRotation.CounterClockwise90, rows - 1 - row, columns - 1 - column);
 
                 Assert.Equal(clockwise, counter);
             }

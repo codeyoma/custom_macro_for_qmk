@@ -80,13 +80,13 @@
 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Margin="4" Height="96" Tag="{Binding Number}" Click="OnSlotClicked"
+                        <Button x:Name="SlotButton" Margin="4" Height="96" Click="OnSlotClicked"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                                 Background="White" BorderBrush="#E4E4DE" BorderThickness="1">
                             <Grid>
                                 <StackPanel Margin="4">
-                                    <TextBlock Text="{Binding Number}" FontSize="10" Foreground="#888780" />
-                                    <TextBlock Text="{Binding Label}" FontSize="12" Margin="0,2,0,0"
+                                    <TextBlock x:Name="SlotNumber" Text="{Binding Number}" FontSize="10" Foreground="#888780" />
+                                    <TextBlock x:Name="SlotLabel" Text="{Binding Label}" FontSize="12" Margin="0,2,0,0"
                                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="32" />
 
                                     <!-- 실제 삽입될 문장. 칸을 넘치면 잘라서 보여준다. -->
@@ -113,6 +113,21 @@
                             </DataTrigger>
                             <DataTrigger Binding="{Binding AppendEnter}" Value="True">
                                 <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+
+                            <!-- 키가 없는 자리. 칸은 차지하되 보이지 않아야 실물과 모양이 맞는다. -->
+                            <DataTrigger Binding="{Binding Kind}" Value="Blank">
+                                <Setter TargetName="SlotButton" Property="Visibility" Value="Hidden" />
+                            </DataTrigger>
+
+                            <!-- 치트시트 레이어 키. 고칠 내용이 없으니 눌러도 반응하지 않는다. -->
+                            <DataTrigger Binding="{Binding Kind}" Value="CheatKey">
+                                <Setter Property="Opacity" Value="1" />
+                                <Setter TargetName="SlotButton" Property="Background" Value="#E1F5EE" />
+                                <Setter TargetName="SlotButton" Property="BorderBrush" Value="#9FE1CB" />
+                                <Setter TargetName="SlotButton" Property="Cursor" Value="Arrow" />
+                                <Setter TargetName="SlotNumber" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="SlotLabel" Property="Foreground" Value="#0F6E56" />
                             </DataTrigger>
                         </DataTemplate.Triggers>
                     </DataTemplate>

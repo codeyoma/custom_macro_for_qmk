@@ -62,8 +62,8 @@ public partial class ManagerWindow : Window
             _appliedRotation = rotation;
         }
 
-        SlotCells.ItemsSource = SlotGrid.Order(rotation)
-            .Select(index => OverlayCell.From(_store[index]))
+        SlotCells.ItemsSource = SlotGrid.Cells(rotation)
+            .Select(cell => OverlayCell.From(cell, _store.Slots))
             .ToArray();
 
         RotateButton.Content = $"방향 {(int)rotation}°";
@@ -93,10 +93,9 @@ public partial class ManagerWindow : Window
 
     private void OnSlotClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: int number })
-            return;
-
-        SelectSlot(number - 1);
+        // 치트시트 키 자리와 빈틈은 고칠 내용이 없다.
+        if (sender is Button { DataContext: OverlayCell { Kind: GridCellKind.Slot } cell })
+            SelectSlot(cell.Number - 1);
     }
 
     private void SelectSlot(int index)
