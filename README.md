@@ -1,6 +1,10 @@
 # 문장 매크로 (MacroTyper)
 
+[![release](https://img.shields.io/github/v/release/codeyoma/custom_macro_for_qmk)](https://github.com/codeyoma/custom_macro_for_qmk/releases/latest)
+
 QMK 매크로패드의 키를 누르면, Windows에서 지금 커서가 있는 자리에 미리 등록해 둔 문장이 타이핑되어 들어간다.
+
+**[최신 릴리즈에서 exe와 펌웨어 받기](https://github.com/codeyoma/custom_macro_for_qmk/releases/latest)**
 
 - 하드웨어: Helix Pico 오른쪽 PCB 한쪽 (물리 키 25개)
 - 문장 24개 + 치트시트 레이어 키 1개
