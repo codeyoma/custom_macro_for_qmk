@@ -61,11 +61,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 // (tmk_core/protocol/lufa/lufa.c 의 send_report() 가 timeout 255 를 카운트다운한다).
 // 키를 누를 때 그만큼 지연되지만 키보드가 멈추지는 않는다.
 static void send_macro_packet(uint8_t cmd, uint8_t arg) {
-    uint8_t msg[RAW_EPSIZE] = {0};
+    uint8_t msg[MACRO_PACKET_SIZE] = {0};
     msg[0] = MACRO_MAGIC;
     msg[1] = cmd;
     msg[2] = arg;
-    raw_hid_send(msg, RAW_EPSIZE);
+    raw_hid_send(msg, MACRO_PACKET_SIZE);
 }
 
 // PC가 보낸 핑에 응답한다. 프로그램이 키보드 연결을 확인하는 경로다.

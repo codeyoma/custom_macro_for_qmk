@@ -12,6 +12,13 @@
 
 #pragma once
 
+// Raw HID 패킷 크기.
+//
+// QMK 의 RAW_EPSIZE 매크로는 키맵에서 보이지 않는다(내부 구현으로 들어갔다).
+// quantum/raw_hid.h 가 raw_hid_send 에 대해 "Must always be 32 bytes in length" 라고
+// 못박고 있으므로 여기에 직접 둔다. src/MacroTyper.Core/MacroProtocol.cs 의 PacketSize 와 같아야 한다.
+#define MACRO_PACKET_SIZE 32
+
 #define MACRO_MAGIC 0xAB
 
 // 키보드 -> PC
