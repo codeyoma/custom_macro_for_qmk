@@ -1,10 +1,10 @@
 #pragma once
 
-// 물리적 오른쪽 PCB를 단독으로 USB에 연결해 쓴다.
+// 물리적 오른쪽 PCB를 단독으로 USB에 연결해 쓴다는 뜻이다.
 //
-// 이게 없으면 QMK는 USB가 꽂힌 쪽을 무조건 왼쪽으로 취급한다
-// (quantum/split_common/split_util.c 의 is_keyboard_left_impl() 최종 #else 분기).
-// 그러면 keymap.c 에서 오른쪽 자리에 넣은 키코드에 영원히 도달하지 못한다.
+// 다만 keymap.c 가 왼쪽 자리와 오른쪽 자리에 같은 키코드를 깔아 두므로
+// 이 설정이 없어도, 반대로 왼쪽 PCB를 꽂아도 똑같이 동작한다.
+// 예전에는 이 한 줄에 24키 전체가 걸려 있었다. 이제는 걸려 있지 않다.
 #define MASTER_RIGHT
 
 // 반대쪽 반쪽은 아예 연결하지 않는다.

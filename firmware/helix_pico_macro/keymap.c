@@ -30,27 +30,35 @@ enum custom_keycodes {
 };
 
 // LAYOUT 인자는 50개다. 행별로 왼쪽 6 + 오른쪽 6, 마지막 행만 왼쪽 7 + 오른쪽 7.
-// MASTER_RIGHT 를 정의했으므로 USB에 꽂힌 이 PCB가 오른쪽(matrix row 4~7)으로 잡힌다.
-// 따라서 실제 키코드는 전부 각 행의 뒤쪽 자리에 놓고, 왼쪽 자리는 KC_NO로 둔다.
+// (keyboard.json 확인: 인자 0~5 -> matrix[0][0..5], 인자 6~11 -> matrix[4][5..0])
+//
+// 왼쪽 자리와 오른쪽 자리에 똑같은 키코드를 넣는다. 실수가 아니라 의도다.
+//
+// QMK 는 USB 가 꽂힌 쪽을 왼쪽으로 볼지 오른쪽으로 볼지를 핸디드니스 설정으로 정하는데,
+// 한쪽만 놓고 그 판정이 어긋나면 전부 KC_NO 자리를 스캔하게 되어 24키가 통째로 죽는다.
+// 양쪽에 같은 것을 깔아 두면 어느 쪽으로 잡히든 동일하게 동작한다.
+// 한쪽만 연결하는 한 반대편 자리는 스캔되지 않으므로 중복은 아무 문제가 없다.
+//
+// 각 반쪽 안에서의 순서는 물리적으로 왼쪽부터다. LAYOUT 이 열 역순을 알아서 처리한다.
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     // 평소 상태. 24개 키가 그대로 문장 1~24번이다.
     [LAYER_BASE] = LAYOUT(
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,     MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,     MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,     MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,
-                                                      MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, MO(LAYER_CHEAT)
+        MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,   MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,
+        MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,   MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,
+        MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,   MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,
+        MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, MO(LAYER_CHEAT),
+        MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, MO(LAYER_CHEAT)
     ),
 
     // 레이어 키를 누르고 있는 동안. 치트시트가 화면에 떠 있다.
     // 키 배치는 같다. 보면서 그대로 누르면 된다.
     [LAYER_CHEAT] = LAYOUT(
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,     MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,     MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,     MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,
-        KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO,
-                                                      MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, KC_TRNS
+        MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,   MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,
+        MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,   MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,
+        MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,   MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,
+        MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, KC_TRNS,
+        MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, KC_TRNS
     ),
 };
 
