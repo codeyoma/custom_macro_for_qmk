@@ -172,10 +172,19 @@ public sealed class HidListener : IDisposable
     /// <summary>
     /// 키보드는 HID 인터페이스를 여러 개 노출한다. VID/PID만으로는 어느 것이
     /// Raw HID인지 알 수 없어서 리포트 디스크립터의 usage까지 확인해야 한다.
+    ///
+    /// VID/PID가 맞는 장치를 먼저 찾고, 없으면 usage만 보고 다시 찾는다.
+    /// 펌웨어를 포크하거나 VID/PID를 바꿔 쓰는 경우가 흔한데,
+    /// 그때 "장치를 못 찾음"으로 조용히 죽는 것보다 낫다.
+    /// 우리 매직 넘버를 확인하므로 엉뚱한 장치의 패킷을 삼킬 위험은 없다.
     /// </summary>
-    private HidDevice? FindRawHidInterface()
+    private HidDevice? FindRawHidInterface() =>
+        FindRawHidAmong(DeviceList.Local.GetHidDevices(_vendorId, _productId))
+        ?? FindRawHidAmong(DeviceList.Local.GetHidDevices());
+
+    private static HidDevice? FindRawHidAmong(IEnumerable<HidDevice> candidates)
     {
-        foreach (HidDevice device in DeviceList.Local.GetHidDevices(_vendorId, _productId))
+        foreach (HidDevice device in candidates)
         {
             try
             {
