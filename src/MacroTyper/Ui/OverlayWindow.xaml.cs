@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Interop;
 using MacroTyper.Core;
 using MacroTyper.Interop;
@@ -96,6 +97,23 @@ public partial class OverlayWindow : Window
             Hide();
     }
 
+    /// <summary>치트시트의 칸을 마우스로 눌렀을 때. 인자는 슬롯 인덱스(0부터).</summary>
+    public event EventHandler<int>? SlotActivated;
+
+    /// <summary>치트시트의 편집 버튼을 눌렀을 때.</summary>
+    public event EventHandler? EditRequested;
+
+    private void OnCellClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: OverlayCell cell })
+            SlotActivated?.Invoke(this, cell.Number - 1);
+    }
+
+    private void OnEditClicked(object sender, MouseButtonEventArgs e)
+    {
+        EditRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private void CenterOnMonitorOf(nint anchorWindow)
     {
         nint reference = anchorWindow != 0 ? anchorWindow : _handle;
@@ -136,8 +154,16 @@ public partial class OverlayWindow : Window
         nint style = NativeMethods.GetWindowExStyle(_handle);
 
         style |= NativeMethods.WsExNoActivate   // 클릭해도 포그라운드가 되지 않는다
-               | NativeMethods.WsExTransparent  // 클릭이 아래 창으로 통과한다
                | NativeMethods.WsExToolWindow;  // 작업 표시줄과 Alt+Tab 에서 빠진다
+
+        // WS_EX_TRANSPARENT 는 일부러 걸지 않는다.
+        // 그걸 걸면 클릭이 아래 창으로 통과해 버려서 칸을 눌러 삽입하거나
+        // 편집 버튼을 누를 수가 없다.
+        //
+        // 대신 WS_EX_NOACTIVATE 와 WM_MOUSEACTIVATE 처리가 포커스를 지킨다.
+        // 마우스는 받지만 활성화되지는 않으므로, 글을 쓰던 창이 포그라운드로 남고
+        // 커서 위치도 그대로다.
+        style &= ~NativeMethods.WsExTransparent;
 
         NativeMethods.SetWindowExStyle(_handle, style);
     }

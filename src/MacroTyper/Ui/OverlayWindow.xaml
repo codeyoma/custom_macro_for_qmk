@@ -28,6 +28,30 @@
             BorderThickness="1"
             Padding="16">
 
+      <DockPanel>
+
+        <!--
+            편집 버튼. 누르면 관리창이 열린다.
+            치트시트를 보다가 "이 칸 내용을 바꿔야겠다" 싶을 때 바로 갈 수 있게 둔다.
+        -->
+        <Border x:Name="EditButton" DockPanel.Dock="Right"
+                Width="34" Margin="10,3,3,3"
+                CornerRadius="6"
+                Background="#17FFFFFF"
+                Cursor="Hand"
+                ToolTip="문장 관리창 열기"
+                MouseLeftButtonUp="OnEditClicked">
+            <TextBlock Text="편집"
+                       FontSize="11"
+                       Foreground="#C8FFFFFF"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center">
+                <TextBlock.LayoutTransform>
+                    <RotateTransform Angle="90" />
+                </TextBlock.LayoutTransform>
+            </TextBlock>
+        </Border>
+
         <ItemsControl x:Name="Cells">
             <!-- 행/열은 매크로패드를 돌려 놓은 방향에 따라 코드에서 바꾼다. -->
             <ItemsControl.ItemsPanel>
@@ -38,10 +62,13 @@
 
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
+                    <!-- 칸을 누르면 그 슬롯이 바로 삽입된다. 손이 마우스에 있을 때를 위한 길. -->
                     <Border x:Name="Cell"
                             Width="124" Height="70" Margin="3"
                             CornerRadius="6"
-                            Background="#17FFFFFF">
+                            Background="#17FFFFFF"
+                            Cursor="Hand"
+                            MouseLeftButtonUp="OnCellClicked">
                         <Grid>
                             <StackPanel Margin="8,6">
                                 <TextBlock x:Name="Number"
@@ -94,5 +121,7 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+      </DockPanel>
     </Border>
 </Window>

@@ -39,6 +39,11 @@ public partial class App : Application
         _overlay = new OverlayWindow();
         _overlay.UpdateSlots(_store.Slots, _store.Rotation);
 
+        // 치트시트를 보다가 마우스로 바로 넣거나 고치러 갈 수 있게 한다.
+        // 오버레이는 포커스를 받지 않으므로 칸을 눌러도 글을 쓰던 창이 포그라운드로 남는다.
+        _overlay.SlotActivated += (_, index) => Task.Run(() => InjectSlot(index));
+        _overlay.EditRequested += (_, _) => OpenManager();
+
         CreateTrayIcon();
 
         _listener = new HidListener();

@@ -152,12 +152,17 @@ sealed record Slot(int Index, string Label, string Text, bool AppendEnter);
 
 매크로 레이어 키를 홀드하는 동안 화면에 뜬다.
 
-- 4행 6열, 라벨만 표시. 빈 슬롯은 흐리게
+- 4행 6열, 라벨과 문장 미리보기 표시. 빈 슬롯은 흐리게
 - 반투명 어두운 패널. 활성 창이 있는 모니터 중앙
-- **포커스를 절대 받지 않는다** — `WS_EX_NOACTIVATE`
-- **클릭이 아래 창으로 통과한다** — `WS_EX_TRANSPARENT`
+- **포커스를 절대 받지 않는다** — `WS_EX_NOACTIVATE` + `WM_MOUSEACTIVATE`에서 `MA_NOACTIVATE`
 - 작업 표시줄과 Alt+Tab에 나타나지 않는다 — `WS_EX_TOOLWINDOW`
 - 매번 새로 만들지 않고 하나를 재사용하며 `Visibility`만 토글한다
+- 칸을 마우스로 누르면 그 슬롯이 삽입되고, 오른쪽 편집 버튼은 관리창을 연다
+
+`WS_EX_TRANSPARENT`는 걸지 않는다. 그걸 걸면 클릭이 아래 창으로 통과해 버려서
+칸을 눌러 삽입하거나 편집 버튼을 누를 수 없다. 포커스는 `WS_EX_NOACTIVATE`와
+`WM_MOUSEACTIVATE` 처리가 지키므로, 마우스를 받으면서도 글 쓰던 창이 포그라운드로 남는다.
+(부수 효과로 터치 입력도 받는다. `WS_EX_TRANSPARENT`를 건 WPF 창은 터치를 전혀 받지 못한다)
 
 오버레이가 포커스를 가져가는 순간 원래 커서 위치가 날아가 프로그램 전체가 무의미해진다.
 이것이 이 화면의 유일한 절대 조건이다.
