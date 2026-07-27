@@ -22,6 +22,7 @@ public sealed class SlotStore
     private readonly string _filePath;
     private Slot[] _slots = CreateEmptySet();
     private GridRotation _rotation = GridRotation.None;
+    private Hotkey _cheatHotkey = Hotkey.None;
 
     public SlotStore(string filePath) => _filePath = filePath;
 
@@ -35,6 +36,18 @@ public sealed class SlotStore
     {
         get => _rotation;
         set => _rotation = Enum.IsDefined(value) ? value : GridRotation.None;
+    }
+
+    /// <summary>
+    /// 치트시트를 여는 전역 단축키. 매크로패드의 레이어 키와는 별개의 길이다.
+    ///
+    /// 보조 키 없는 조합은 받지 않는다. 그런 걸 등록하면 그 키가 시스템 전체에서 막혀
+    /// 어느 앱에서도 입력할 수 없게 된다.
+    /// </summary>
+    public Hotkey CheatHotkey
+    {
+        get => _cheatHotkey;
+        set => _cheatHotkey = value.IsSet && value.HasModifier ? value : Hotkey.None;
     }
 
     /// <summary>%APPDATA%\MacroTyper\slots.json 을 사용하는 기본 저장소.</summary>
@@ -86,8 +99,9 @@ public sealed class SlotStore
 
         _slots = parsed?.Slots is { } entries ? Normalize(entries) : CreateEmptySet();
 
-        // 속성 setter 를 거쳐야 파일에 적힌 엉뚱한 각도가 걸러진다.
+        // 속성 setter 를 거쳐야 파일에 적힌 엉뚱한 값이 걸러진다.
         Rotation = parsed?.Rotation ?? GridRotation.None;
+        CheatHotkey = parsed?.CheatHotkey ?? Hotkey.None;
     }
 
     /// <summary>임시 파일에 쓴 뒤 교체한다. 저장 중 중단되어도 기존 파일이 남는다.</summary>
@@ -100,6 +114,7 @@ public sealed class SlotStore
         var payload = new SlotFile(
             FormatVersion,
             _rotation,
+            _cheatHotkey,
             _slots.Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter)).ToArray());
 
         string temp = _filePath + ".tmp";
@@ -160,8 +175,8 @@ public sealed class SlotStore
                 paramName, index, $"슬롯 인덱스는 0 이상 {MacroProtocol.SlotCount} 미만이어야 합니다.");
     }
 
-    // rotation 이 없는 예전 파일도 그대로 읽힌다. 빠진 값은 기본값(None)이 된다.
-    internal sealed record SlotFile(int Version, GridRotation Rotation, SlotEntry[] Slots);
+    // 예전 파일도 그대로 읽힌다. 빠진 값은 기본값이 된다.
+    internal sealed record SlotFile(int Version, GridRotation Rotation, Hotkey CheatHotkey, SlotEntry[] Slots);
 
     internal sealed record SlotEntry(int Index, string? Label, string? Text, bool AppendEnter);
 }

@@ -23,6 +23,13 @@
                         ToolTip="매크로패드를 돌려 놓은 방향에 맞춰 격자를 90도씩 돌립니다"
                         Click="OnRotate" />
 
+                <!-- 매크로패드 없이도 치트시트를 열 수 있는 전역 단축키. -->
+                <Button x:Name="HotkeyButton" DockPanel.Dock="Right"
+                        Content="단축키 없음" Margin="0,0,10,0" Padding="12,4" Height="28"
+                        VerticalAlignment="Center"
+                        ToolTip="치트시트를 여는 전역 단축키입니다. 눌러서 설정하세요"
+                        Click="OnHotkeyButtonClicked" />
+
                 <TextBlock Text="문장 매크로" FontSize="15" FontWeight="Medium" VerticalAlignment="Center" />
             </DockPanel>
         </Border>

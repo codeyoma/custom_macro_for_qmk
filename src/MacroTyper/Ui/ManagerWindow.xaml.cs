@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MacroTyper.Core;
@@ -17,21 +18,30 @@ public partial class ManagerWindow : Window
     private readonly SlotStore _store;
     private readonly TextInjector _injector;
     private readonly Action _slotsChanged;
+    private readonly Func<Hotkey, bool> _applyHotkey;
+
+    private bool _capturingHotkey;
 
     private int _selectedIndex = -1;
     private DispatcherTimer? _countdown;
     private int _secondsLeft;
     private GridRotation? _appliedRotation;
 
-    public ManagerWindow(SlotStore store, TextInjector injector, Action slotsChanged)
+    public ManagerWindow(
+        SlotStore store,
+        TextInjector injector,
+        Action slotsChanged,
+        Func<Hotkey, bool> applyHotkey)
     {
         InitializeComponent();
 
         _store = store;
         _injector = injector;
         _slotsChanged = slotsChanged;
+        _applyHotkey = applyHotkey;
 
         RefreshGrid();
+        RefreshHotkeyButton();
     }
 
     /// <summary>
@@ -67,6 +77,113 @@ public partial class ManagerWindow : Window
             .ToArray();
 
         RotateButton.Content = $"방향 {(int)rotation}°";
+    }
+
+    // --- 치트시트를 여는 전역 단축키 ---
+
+    private void RefreshHotkeyButton()
+    {
+        HotkeyButton.Content = _store.CheatHotkey.IsSet
+            ? _store.CheatHotkey.Describe()
+            : "단축키 없음";
+    }
+
+    private void OnHotkeyButtonClicked(object sender, RoutedEventArgs e)
+    {
+        if (_capturingHotkey)
+        {
+            StopCapturingHotkey();
+            return;
+        }
+
+        _capturingHotkey = true;
+        HotkeyButton.Content = "키를 누르세요";
+        HintText.Text = "Ctrl · Alt · Shift · Win 중 하나를 함께 눌러야 합니다. Esc 로 취소, Delete 로 해제";
+    }
+
+    private void StopCapturingHotkey()
+    {
+        _capturingHotkey = false;
+        RefreshHotkeyButton();
+    }
+
+    /// <summary>
+    /// 단축키를 잡는 동안에는 이 창의 모든 키 입력을 가로챈다.
+    /// 그러지 않으면 Ctrl+A 같은 조합이 편집 상자로 새어 들어간다.
+    /// </summary>
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        if (!_capturingHotkey)
+        {
+            base.OnPreviewKeyDown(e);
+            return;
+        }
+
+        e.Handled = true;
+
+        // Alt 조합은 SystemKey 로 온다.
+        Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+        if (key == Key.Escape)
+        {
+            StopCapturingHotkey();
+            HintText.Text = string.Empty;
+            return;
+        }
+
+        if (key is Key.Delete or Key.Back)
+        {
+            ApplyHotkey(Hotkey.None);
+            return;
+        }
+
+        // 보조 키만 눌린 상태는 아직 조합이 완성되지 않은 것이다. 계속 기다린다.
+        if (IsModifierKey(key))
+            return;
+
+        HotkeyModifiers modifiers = ToHotkeyModifiers(Keyboard.Modifiers);
+
+        if (modifiers == HotkeyModifiers.None)
+        {
+            HintText.Text = "보조 키 없이 등록하면 그 키를 다른 앱에서 쓸 수 없게 됩니다";
+            return;
+        }
+
+        ApplyHotkey(new Hotkey(modifiers, (uint)KeyInterop.VirtualKeyFromKey(key)));
+    }
+
+    private void ApplyHotkey(Hotkey hotkey)
+    {
+        _capturingHotkey = false;
+
+        if (!_applyHotkey(hotkey))
+        {
+            RefreshHotkeyButton();
+            HintText.Text = "다른 프로그램이 이미 쓰는 조합입니다. 다른 키로 해보세요";
+            return;
+        }
+
+        RefreshHotkeyButton();
+        HintText.Text = hotkey.IsSet ? "단축키를 등록했습니다" : "단축키를 해제했습니다";
+    }
+
+    private static bool IsModifierKey(Key key) => key is
+        Key.LeftCtrl or Key.RightCtrl or
+        Key.LeftAlt or Key.RightAlt or
+        Key.LeftShift or Key.RightShift or
+        Key.LWin or Key.RWin or
+        Key.System;
+
+    private static HotkeyModifiers ToHotkeyModifiers(ModifierKeys keys)
+    {
+        HotkeyModifiers result = HotkeyModifiers.None;
+
+        if (keys.HasFlag(ModifierKeys.Control)) result |= HotkeyModifiers.Control;
+        if (keys.HasFlag(ModifierKeys.Alt)) result |= HotkeyModifiers.Alt;
+        if (keys.HasFlag(ModifierKeys.Shift)) result |= HotkeyModifiers.Shift;
+        if (keys.HasFlag(ModifierKeys.Windows)) result |= HotkeyModifiers.Windows;
+
+        return result;
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -23,6 +24,9 @@ public partial class App : Application
     private ManagerWindow? _manager;
     private TaskbarIcon? _tray;
 
+    /// <summary>단축키로 열어 둔 상태. 레이어 키를 떼도 닫히지 않는다.</summary>
+    private bool _overlayPinned;
+
     private void OnStartup(object sender, StartupEventArgs e)
     {
         if (!TryClaimSingleInstance())
@@ -41,8 +45,11 @@ public partial class App : Application
 
         // 치트시트를 보다가 마우스로 바로 넣거나 고치러 갈 수 있게 한다.
         // 오버레이는 포커스를 받지 않으므로 칸을 눌러도 글을 쓰던 창이 포그라운드로 남는다.
-        _overlay.SlotActivated += (_, index) => Task.Run(() => InjectSlot(index));
+        _overlay.SlotActivated += OnSlotActivated;
         _overlay.EditRequested += (_, _) => OpenManager();
+        _overlay.HotkeyPressed += (_, _) => ToggleOverlay();
+
+        _overlay.TryRegisterHotkey(_store.CheatHotkey);
 
         CreateTrayIcon();
 
@@ -100,7 +107,12 @@ public partial class App : Application
                 break;
 
             case MacroEvent.OverlayHide:
-                Dispatcher.BeginInvoke(() => _overlay.HideOverlay());
+                // 단축키로 열어 둔 상태라면 레이어 키를 뗐다고 닫지 않는다.
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (!_overlayPinned)
+                        _overlay.HideOverlay();
+                });
                 break;
 
             case MacroEvent.Pong:
@@ -140,6 +152,64 @@ public partial class App : Application
         };
 
         _tray?.ShowBalloonTip($"{slot.Index + 1}번 삽입 실패", message, BalloonIcon.Warning);
+    }
+
+    /// <summary>
+    /// 단축키로 치트시트를 열고 닫는다.
+    ///
+    /// 레이어 키와 달리 토글이다. Windows 는 단축키가 눌린 것만 알려주고
+    /// 언제 떼는지는 알려주지 않아서 "누르고 있는 동안"을 만들 수 없다.
+    /// </summary>
+    private void ToggleOverlay()
+    {
+        if (_overlayPinned)
+        {
+            _overlayPinned = false;
+            _overlay.HideOverlay();
+            return;
+        }
+
+        _overlayPinned = true;
+        ShowOverlay();
+    }
+
+    private void OnSlotActivated(object? sender, int index)
+    {
+        // 마우스로 골랐으면 볼 일이 끝난 것이다. 단축키로 열어 뒀더라도 닫는다.
+        if (_overlayPinned)
+        {
+            _overlayPinned = false;
+            _overlay.HideOverlay();
+        }
+
+        Task.Run(() => InjectSlot(index));
+    }
+
+    /// <summary>
+    /// 단축키를 등록하고 저장한다. 다른 앱이 이미 쓰는 조합이면 <c>false</c>.
+    /// 등록에 실패하면 저장하지 않는다. 다음 실행 때 또 실패할 설정을 남길 이유가 없다.
+    /// </summary>
+    private bool ApplyHotkey(Hotkey hotkey)
+    {
+        if (!_overlay.TryRegisterHotkey(hotkey))
+        {
+            // 실패했으면 쓰던 것으로 되돌린다.
+            _overlay.TryRegisterHotkey(_store.CheatHotkey);
+            return false;
+        }
+
+        _store.CheatHotkey = hotkey;
+
+        try
+        {
+            _store.Save();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // 저장에 실패해도 이번 실행 동안은 동작한다.
+        }
+
+        return true;
     }
 
     private void ShowOverlay()
@@ -215,7 +285,11 @@ public partial class App : Application
     {
         if (_manager is null)
         {
-            _manager = new ManagerWindow(_store, _injector, () => _overlay.UpdateSlots(_store.Slots, _store.Rotation));
+            _manager = new ManagerWindow(
+                _store,
+                _injector,
+                () => _overlay.UpdateSlots(_store.Slots, _store.Rotation),
+                ApplyHotkey);
             _manager.SetConnectionState(_listener.IsConnected);
         }
 

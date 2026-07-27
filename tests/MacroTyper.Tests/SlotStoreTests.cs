@@ -254,6 +254,60 @@ public class SlotStoreTests : IDisposable
         Assert.Equal(GridRotation.None, store.Rotation);
     }
 
+    // --- 치트시트를 여는 전역 단축키 ---
+
+    [Fact]
+    public void CheatHotkey_ByDefault_IsUnset()
+    {
+        Assert.False(LoadedStore().CheatHotkey.IsSet);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsHotkey()
+    {
+        var hotkey = new Hotkey(HotkeyModifiers.Control | HotkeyModifiers.Alt, 0x20);
+
+        var store = LoadedStore();
+        store.CheatHotkey = hotkey;
+        store.Save();
+
+        Assert.Equal(hotkey, LoadedStore().CheatHotkey);
+    }
+
+    [Fact]
+    public void Load_WithoutHotkeyField_FallsBackToUnset()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "slots": [] }
+            """);
+
+        Assert.False(LoadedStore().CheatHotkey.IsSet);
+    }
+
+    /// <summary>
+    /// 보조 키 없는 단축키가 파일에 적혀 있으면 그 키가 시스템 전체에서 막힌다.
+    /// 손으로 편집된 파일을 그대로 믿지 않는다.
+    /// </summary>
+    [Fact]
+    public void CheatHotkey_SetWithoutModifier_IsRejected()
+    {
+        var store = LoadedStore();
+
+        store.CheatHotkey = new Hotkey(HotkeyModifiers.None, 0x41);
+
+        Assert.False(store.CheatHotkey.IsSet);
+    }
+
+    [Fact]
+    public void Load_WithModifierlessHotkeyInFile_FallsBackToUnset()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "slots": [], "cheatHotkey": { "modifiers": 0, "virtualKey": 65 } }
+            """);
+
+        Assert.False(LoadedStore().CheatHotkey.IsSet);
+    }
+
     [Fact]
     public void SaveThenLoad_KeepsRotationAndSlotsTogether()
     {

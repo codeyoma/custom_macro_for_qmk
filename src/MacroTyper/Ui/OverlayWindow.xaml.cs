@@ -15,8 +15,11 @@ namespace MacroTyper.Ui;
 /// </summary>
 public partial class OverlayWindow : Window
 {
+    private const int HotkeyId = 1;
+
     private nint _handle;
     private GridRotation? _appliedRotation;
+    private bool _hotkeyRegistered;
 
     public OverlayWindow()
     {
@@ -103,6 +106,37 @@ public partial class OverlayWindow : Window
     /// <summary>치트시트의 편집 버튼을 눌렀을 때.</summary>
     public event EventHandler? EditRequested;
 
+    /// <summary>등록해 둔 전역 단축키가 눌렸을 때.</summary>
+    public event EventHandler? HotkeyPressed;
+
+    /// <summary>
+    /// 치트시트를 여는 전역 단축키를 등록한다. 이전에 등록한 것은 풀린다.
+    /// 다른 앱이 이미 쓰고 있는 조합이면 <c>false</c>를 돌려준다.
+    ///
+    /// 이 창의 핸들에 붙인다. 창이 숨어 있어도 핸들은 살아 있으므로 단축키는 계속 동작한다.
+    /// </summary>
+    public bool TryRegisterHotkey(Hotkey hotkey)
+    {
+        UnregisterHotkey();
+
+        if (_handle == 0 || !hotkey.IsSet)
+            return true;
+
+        _hotkeyRegistered = NativeMethods.RegisterHotKey(
+            _handle, HotkeyId, (uint)hotkey.Modifiers, hotkey.VirtualKey);
+
+        return _hotkeyRegistered;
+    }
+
+    public void UnregisterHotkey()
+    {
+        if (_handle == 0 || !_hotkeyRegistered)
+            return;
+
+        NativeMethods.UnregisterHotKey(_handle, HotkeyId);
+        _hotkeyRegistered = false;
+    }
+
     private void OnCellClicked(object sender, MouseButtonEventArgs e)
     {
         // 치트시트 키 자리와 빈틈은 누를 것이 없다.
@@ -176,6 +210,13 @@ public partial class OverlayWindow : Window
         {
             handled = true;
             return NativeMethods.MaNoActivate;
+        }
+
+        if ((uint)msg == NativeMethods.WmHotkey && wParam == HotkeyId)
+        {
+            handled = true;
+            HotkeyPressed?.Invoke(this, EventArgs.Empty);
+            return 0;
         }
 
         return 0;

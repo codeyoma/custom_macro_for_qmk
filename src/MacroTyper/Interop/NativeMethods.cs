@@ -77,6 +77,18 @@ internal static class NativeMethods
     internal static extern nint SendMessageTimeout(
         nint hWnd, uint msg, nint wParam, nint lParam, uint flags, uint timeoutMs, out nint result);
 
+    // --- 전역 단축키 ---
+
+    internal const uint WmHotkey = 0x0312;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool RegisterHotKey(nint hWnd, int id, uint modifiers, uint virtualKey);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool UnregisterHotKey(nint hWnd, int id);
+
     // --- 창 스타일 (오버레이) ---
 
     internal const int GwlExStyle = -20;
