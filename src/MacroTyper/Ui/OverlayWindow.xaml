@@ -29,9 +29,10 @@
             Padding="16">
 
         <ItemsControl x:Name="Cells">
+            <!-- 행/열은 매크로패드를 돌려 놓은 방향에 따라 코드에서 바꾼다. -->
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <UniformGrid Rows="4" Columns="6" />
+                    <UniformGrid x:Name="CellLayout" Rows="4" Columns="6" />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 

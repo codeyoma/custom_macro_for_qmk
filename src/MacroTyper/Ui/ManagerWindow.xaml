@@ -11,11 +11,19 @@
 
         <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E4E4DE" BorderThickness="0,0,0,1" Padding="16,12">
             <DockPanel>
-                <TextBlock Text="문장 매크로" FontSize="15" FontWeight="Medium" VerticalAlignment="Center" />
-                <Border x:Name="StatusBadge" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                        Background="#FCEBEB" CornerRadius="6" Padding="10,4">
+                <Border x:Name="StatusBadge" DockPanel.Dock="Right"
+                        Background="#FCEBEB" CornerRadius="6" Padding="10,4" VerticalAlignment="Center">
                     <TextBlock x:Name="StatusText" Text="매크로패드 찾는 중" FontSize="12" Foreground="#A32D2D" />
                 </Border>
+
+                <!-- 매크로패드를 돌려 놓고 쓸 때 화면 격자도 같이 돌린다. -->
+                <Button x:Name="RotateButton" DockPanel.Dock="Right"
+                        Content="방향 0°" Margin="0,0,10,0" Padding="12,4" Height="28"
+                        VerticalAlignment="Center"
+                        ToolTip="매크로패드를 돌려 놓은 방향에 맞춰 격자를 90도씩 돌립니다"
+                        Click="OnRotate" />
+
+                <TextBlock Text="문장 매크로" FontSize="15" FontWeight="Medium" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
 
@@ -62,7 +70,8 @@
         </Border>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-            <ItemsControl x:Name="SlotGrid">
+            <ItemsControl x:Name="SlotCells">
+                <!-- 행/열은 방향에 따라 코드에서 갈아 끼운다. -->
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <UniformGrid Rows="4" Columns="6" />

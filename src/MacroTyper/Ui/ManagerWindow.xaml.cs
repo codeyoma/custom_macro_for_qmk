@@ -21,6 +21,7 @@ public partial class ManagerWindow : Window
     private int _selectedIndex = -1;
     private DispatcherTimer? _countdown;
     private int _secondsLeft;
+    private GridRotation? _appliedRotation;
 
     public ManagerWindow(SlotStore store, TextInjector injector, Action slotsChanged)
     {
@@ -52,7 +53,42 @@ public partial class ManagerWindow : Window
 
     public void RefreshGrid()
     {
-        SlotGrid.ItemsSource = _store.Slots.Select(OverlayCell.From).ToArray();
+        GridRotation rotation = _store.Rotation;
+
+        if (_appliedRotation != rotation)
+        {
+            (int rows, int columns) = SlotGrid.SizeFor(rotation);
+            SlotCells.ItemsPanel = SlotGridTemplate.For(rows, columns);
+            _appliedRotation = rotation;
+        }
+
+        SlotCells.ItemsSource = SlotGrid.Order(rotation)
+            .Select(index => OverlayCell.From(_store[index]))
+            .ToArray();
+
+        RotateButton.Content = $"방향 {(int)rotation}°";
+    }
+
+    /// <summary>
+    /// 매크로패드를 돌려 놓았을 때 격자도 같이 돌린다.
+    /// 슬롯 번호와 등록해 둔 문장은 그대로다. 화면에 늘어놓는 순서만 바뀐다.
+    /// </summary>
+    private void OnRotate(object sender, RoutedEventArgs e)
+    {
+        _store.Rotation = SlotGrid.Next(_store.Rotation);
+
+        try
+        {
+            _store.Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 저장에 실패해도 이번 실행 동안은 바뀐 방향으로 보여 준다.
+            HintText.Text = "방향을 저장하지 못했습니다";
+        }
+
+        RefreshGrid();
+        _slotsChanged();
     }
 
     private void OnSlotClicked(object sender, RoutedEventArgs e)

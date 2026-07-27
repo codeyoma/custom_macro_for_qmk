@@ -21,8 +21,21 @@ public sealed class SlotStore
 
     private readonly string _filePath;
     private Slot[] _slots = CreateEmptySet();
+    private GridRotation _rotation = GridRotation.None;
 
     public SlotStore(string filePath) => _filePath = filePath;
+
+    /// <summary>
+    /// 매크로패드를 돌려 놓았을 때의 화면 방향.
+    /// 화면에 늘어놓는 순서만 바꾼다. 슬롯 번호와 문장은 그대로다.
+    ///
+    /// 정의되지 않은 각도는 받지 않는다. 그대로 두면 격자 크기 계산이 어긋나 화면이 깨진다.
+    /// </summary>
+    public GridRotation Rotation
+    {
+        get => _rotation;
+        set => _rotation = Enum.IsDefined(value) ? value : GridRotation.None;
+    }
 
     /// <summary>%APPDATA%\MacroTyper\slots.json 을 사용하는 기본 저장소.</summary>
     public static SlotStore OpenDefault()
@@ -72,6 +85,9 @@ public sealed class SlotStore
         }
 
         _slots = parsed?.Slots is { } entries ? Normalize(entries) : CreateEmptySet();
+
+        // 속성 setter 를 거쳐야 파일에 적힌 엉뚱한 각도가 걸러진다.
+        Rotation = parsed?.Rotation ?? GridRotation.None;
     }
 
     /// <summary>임시 파일에 쓴 뒤 교체한다. 저장 중 중단되어도 기존 파일이 남는다.</summary>
@@ -83,6 +99,7 @@ public sealed class SlotStore
 
         var payload = new SlotFile(
             FormatVersion,
+            _rotation,
             _slots.Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter)).ToArray());
 
         string temp = _filePath + ".tmp";
@@ -143,7 +160,8 @@ public sealed class SlotStore
                 paramName, index, $"슬롯 인덱스는 0 이상 {MacroProtocol.SlotCount} 미만이어야 합니다.");
     }
 
-    internal sealed record SlotFile(int Version, SlotEntry[] Slots);
+    // rotation 이 없는 예전 파일도 그대로 읽힌다. 빠진 값은 기본값(None)이 된다.
+    internal sealed record SlotFile(int Version, GridRotation Rotation, SlotEntry[] Slots);
 
     internal sealed record SlotEntry(int Index, string? Label, string? Text, bool AppendEnter);
 }

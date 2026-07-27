@@ -15,6 +15,7 @@ namespace MacroTyper.Ui;
 public partial class OverlayWindow : Window
 {
     private nint _handle;
+    private GridRotation? _appliedRotation;
 
     public OverlayWindow()
     {
@@ -46,9 +47,26 @@ public partial class OverlayWindow : Window
         Hide();
     }
 
-    public void UpdateSlots(IReadOnlyList<Slot> slots)
+    /// <summary>
+    /// 격자를 다시 그린다. 매크로패드를 돌려 놓았으면 화면도 같은 방향으로 눕는다.
+    /// 슬롯 번호는 그대로고 늘어놓는 순서만 바뀐다.
+    /// </summary>
+    public void UpdateSlots(IReadOnlyList<Slot> slots, GridRotation rotation)
     {
-        Cells.ItemsSource = slots.Select(OverlayCell.From).ToArray();
+        // 방향이 바뀔 때만 판을 갈아 끼운다.
+        // 이 메서드는 레이어 키를 누를 때마다 불리는데, 매번 새 템플릿을 물리면
+        // 격자 전체가 다시 만들어져 표시가 굼떠진다.
+        if (_appliedRotation != rotation)
+        {
+            (int rows, int columns) = SlotGrid.SizeFor(rotation);
+            Cells.ItemsPanel = SlotGridTemplate.For(rows, columns);
+            _appliedRotation = rotation;
+        }
+
+        Cells.ItemsSource = SlotGrid.Order(rotation)
+            .Select(index => OverlayCell.From(slots[index]))
+            .ToArray();
+
         UpdateLayout();
     }
 

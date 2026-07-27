@@ -198,4 +198,74 @@ public class SlotStoreTests : IDisposable
 
         Assert.Throws<ArgumentOutOfRangeException>(() => store[index]);
     }
+
+    // --- 매크로패드를 돌려 놓고 쓸 때의 화면 방향 ---
+
+    [Fact]
+    public void Rotation_ByDefault_IsNone()
+    {
+        Assert.Equal(GridRotation.None, LoadedStore().Rotation);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsRotation()
+    {
+        var store = LoadedStore();
+        store.Rotation = GridRotation.Clockwise90;
+        store.Save();
+
+        Assert.Equal(GridRotation.Clockwise90, LoadedStore().Rotation);
+    }
+
+    [Fact]
+    public void Load_WithoutRotationField_FallsBackToNone()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "slots": [ { "index": 0, "label": "하나", "text": "본문", "appendEnter": false } ] }
+            """);
+
+        var store = LoadedStore();
+
+        Assert.Equal(GridRotation.None, store.Rotation);
+        Assert.Equal("하나", store[0].Label);
+    }
+
+    /// <summary>
+    /// 손으로 편집된 파일에 엉뚱한 각도가 들어올 수 있다.
+    /// 그대로 받아들이면 격자 크기 계산이 어긋나 화면이 깨진다.
+    /// </summary>
+    [Fact]
+    public void Load_WithUnknownRotationValue_FallsBackToNone()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "rotation": 45, "slots": [] }
+            """);
+
+        Assert.Equal(GridRotation.None, LoadedStore().Rotation);
+    }
+
+    [Fact]
+    public void Rotation_SetToUnknownValue_FallsBackToNone()
+    {
+        var store = LoadedStore();
+
+        store.Rotation = (GridRotation)137;
+
+        Assert.Equal(GridRotation.None, store.Rotation);
+    }
+
+    [Fact]
+    public void SaveThenLoad_KeepsRotationAndSlotsTogether()
+    {
+        var store = LoadedStore();
+        store.Rotation = GridRotation.CounterClockwise90;
+        store.Set(new Slot(7, "라벨", "본문", true));
+        store.Save();
+
+        var reloaded = LoadedStore();
+
+        Assert.Equal(GridRotation.CounterClockwise90, reloaded.Rotation);
+        Assert.Equal("라벨", reloaded[7].Label);
+        Assert.True(reloaded[7].AppendEnter);
+    }
 }

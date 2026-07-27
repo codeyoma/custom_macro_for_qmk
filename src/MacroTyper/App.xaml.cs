@@ -37,7 +37,7 @@ public partial class App : Application
         _injector = new TextInjector();
 
         _overlay = new OverlayWindow();
-        _overlay.UpdateSlots(_store.Slots);
+        _overlay.UpdateSlots(_store.Slots, _store.Rotation);
 
         CreateTrayIcon();
 
@@ -142,7 +142,7 @@ public partial class App : Application
         // 오버레이는 포커스를 받지 않으므로, 지금 포그라운드인 창이 곧 사용자가 작업 중인 창이다.
         nint foreground = NativeMethods.GetForegroundWindow();
 
-        _overlay.UpdateSlots(_store.Slots);
+        _overlay.UpdateSlots(_store.Slots, _store.Rotation);
         _overlay.ShowOverlay(foreground);
     }
 
@@ -210,7 +210,7 @@ public partial class App : Application
     {
         if (_manager is null)
         {
-            _manager = new ManagerWindow(_store, _injector, () => _overlay.UpdateSlots(_store.Slots));
+            _manager = new ManagerWindow(_store, _injector, () => _overlay.UpdateSlots(_store.Slots, _store.Rotation));
             _manager.SetConnectionState(_listener.IsConnected);
         }
 
