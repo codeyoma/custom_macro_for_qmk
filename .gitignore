@@ -1,0 +1,28 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+TestResults/
+[Dd]ebug/
+[Rr]elease/
+publish/
+artifacts/
+
+# Rider / VS / VS Code
+.idea/
+.vs/
+.vscode/
+
+# macOS
+.DS_Store
+
+# QMK 빌드 산출물
+*.hex
+*.bin
+*.elf
+
+# 로컬 설정 (실제 문장이 담기므로 커밋 금지)
+slots.json
+slots.corrupt-*.json
