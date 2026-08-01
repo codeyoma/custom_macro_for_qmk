@@ -88,11 +88,17 @@ Windows에서 빌드한다.
 dotnet build src/MacroTyper/MacroTyper.csproj -c Release
 ```
 
-단일 exe로 만들려면:
+배포용 exe는 스크립트로 만든다. 손으로 `dotnet publish` 하지 않는다.
+플래그 하나만 빠져도 실행되지 않거나 업데이트가 조용히 멈춘다.
 
 ```bash
-dotnet publish src/MacroTyper/MacroTyper.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+scripts/publish-release.sh
 ```
+
+.NET 런타임을 품은 exe 하나만 낸다. 런타임이 깔린 PC용 작은 exe는 더 내지 않는다.
+둘을 함께 내면 받는 사람이 자기 PC에 무엇이 깔려 있는지부터 알아야 하고,
+업데이트할 때 우리는 상대가 어느 쪽을 쓰는지 기억하고 있어야 한다.
+69MB 한 번이 그 값보다 싸다.
 
 실행하면 트레이에만 뜬다. 트레이 아이콘을 더블클릭하면 문장 관리창이 열린다.
 
@@ -161,15 +167,17 @@ Windows 에서 실행 중인 exe 는 덮어쓸 수 없지만 **이름은 바꿀 
 ### 릴리즈를 만들 때
 
 ```bash
-scripts/publish-release.sh && scripts/sign-windows.sh publish/release/*.exe
+scripts/publish-release.sh && scripts/sign-windows.sh publish/release/MacroTyper-win-x64-standalone.exe
 ```
 
 `src/MacroTyper/MacroTyper.csproj` 의 `<Version>` 과 git 태그가 반드시 같아야 한다.
 버전이 낮으면 이미 최신인데도 계속 업데이트를 권하고, 높으면 새 버전이 나와도 알아채지 못한다.
 
 **인증서를 바꾸지 않는다.** 다른 키로 서명하면 이미 깔린 모든 복사본이 그 업데이트를 거부한다.
-**파일 이름도 바꾸지 않는다.** 돌고 있는 예전 버전들이 그 이름을 찾는다
-(`UpdatePlan.AssetNameFor` 와 `scripts/publish-release.sh` 가 같아야 한다).
+**파일 이름도 바꾸지 않는다.** 돌고 있는 예전 버전들이 그 이름을 찾는다.
+이제 `MacroTyper-win-x64-standalone.exe` 는 호환성의 일부다. 이름에 남은 `standalone` 은
+작은 exe 를 함께 내던 시절의 흔적이지만, 정리하자고 바꾸면 그 값을 사용자가 치른다.
+`UpdatePlan.AssetName` 과 `scripts/publish-release.sh` 가 같아야 하고, 테스트가 이를 잠가 둔다.
 
 ## 설정은 프로그램을 새로 받아도 유지된다
 

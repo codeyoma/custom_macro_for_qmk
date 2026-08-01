@@ -21,19 +21,6 @@ internal static class AppIdentity
         ReleaseFeed.Normalize(Self.GetName().Version ?? new Version(0, 0, 0, 0));
 
     /// <summary>
-    /// 어느 exe 를 받아야 하는지.
-    ///
-    /// 빌드할 때 <c>SelfContained</c> 값을 어셈블리에 새겨 둔다. 실행 중에 알아내려 하면
-    /// 런타임이 품어져 있는지를 확실히 구분할 방법이 없다.
-    /// </summary>
-    public static AppVariant Variant { get; } =
-        Self.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .FirstOrDefault(a => a.Key == "SelfContained")?.Value?
-            .Equals("true", StringComparison.OrdinalIgnoreCase) == true
-            ? AppVariant.Standalone
-            : AppVariant.Lite;
-
-    /// <summary>
     /// 스스로를 갈아끼울 수 있는 형태인가.
     ///
     /// 릴리즈에 올라가는 것은 파일 하나짜리 exe 다. 그 경우에만 파일 하나를 바꿔치기하면 끝난다.
@@ -52,33 +39,63 @@ internal static class AppIdentity
     ///
     /// 이전 버전은 교체하는 그 순간에는 지울 수 없다. 그때 아직 돌고 있기 때문이다.
     /// 그래서 이름만 바꿔 두고, 다음 실행인 지금 지운다.
+    ///
+    /// 그런데 업데이트 직후에는 그 "이전 버전"이 아직 끝나는 중이다. 새 프로세스가 뜨는 사이에
+    /// 종료를 마치지 못했으면 첫 시도가 실패한다. 그것으로 포기하면 69MB 짜리 파일이
+    /// 다음 실행 때까지 exe 옆에 남는다. 그래서 몇 초 간격으로 몇 번 더 해 본다.
+    ///
+    /// 시작을 붙잡지 않도록 배경에서 돈다. 치우지 못해도 프로그램이 도는 데는 지장이 없다.
     /// </summary>
-    public static void CleanUpLeftovers()
+    public static void CleanUpLeftovers() => Task.Run(async () =>
+    {
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            if (TryRemoveLeftovers())
+                return;
+
+            await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+        }
+    });
+
+    /// <summary>남은 것이 없으면 <c>true</c>. 하나라도 못 지웠으면 <c>false</c>.</summary>
+    private static bool TryRemoveLeftovers()
     {
         string executable = ExecutablePath;
 
         if (string.IsNullOrEmpty(executable))
-            return;
+            return true;
 
         string? directory = Path.GetDirectoryName(executable);
 
         if (string.IsNullOrEmpty(directory))
-            return;
+            return true;
 
         string stem = Path.GetFileName(executable);
+        bool clear = true;
 
         foreach (string suffix in new[] { BackupSuffix, DownloadSuffix })
         {
             try
             {
                 foreach (string leftover in Directory.EnumerateFiles(directory, stem + suffix + "*"))
-                    File.Delete(leftover);
+                {
+                    try
+                    {
+                        File.Delete(leftover);
+                    }
+                    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                    {
+                        // 아직 잡혀 있다. 이것 하나 때문에 나머지까지 포기하지는 않는다.
+                        clear = false;
+                    }
+                }
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
             {
-                // 아직 잡혀 있거나 권한이 없다. 다음에 다시 해 본다.
-                // 남은 파일 하나 때문에 시작을 막을 이유는 없다.
+                clear = false;
             }
         }
+
+        return clear;
     }
 }

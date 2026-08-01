@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 #
-# 릴리즈에 올릴 exe 두 개를 만든다.
+# 릴리즈에 올릴 exe 를 만든다.
 #
 #   scripts/publish-release.sh
 #
 # 이 스크립트를 거치지 않고 손으로 publish 하지 않는다. 자동 업데이트가 여기에 매여 있다.
 #
 #   - 파일 이름: 돌고 있는 예전 버전들이 이 이름을 찾는다. 바꾸면 그들은 새 버전을 못 받는다.
-#     (UpdatePlan.AssetNameFor 와 같아야 한다)
-#   - --self-contained: 이 값이 어셈블리에 새겨져서, 나중에 어느 exe 를 받을지 정한다.
-#     빠뜨리면 standalone 을 쓰던 사람이 런타임 없는 lite 를 받아 실행되지 않는다.
+#     (UpdatePlan.AssetName 과 같아야 한다)
+#   - IncludeNativeLibrariesForSelfExtract: 빠뜨리면 WPF 네이티브 dll 이 exe 밖에 남아
+#     받은 사람이 창조차 띄우지 못한다. 아래 검사가 잡는다.
 #
 # 만든 뒤에는 서명한다. 서명이 없으면 그 버전을 받은 사람들은 그다음 업데이트를 할 수 없다.
 # 새 파일이 우리 것인지 대조할 기준이 사라지기 때문이다.
 #
-#   scripts/sign-windows.sh publish/release/*.exe
+#   scripts/sign-windows.sh publish/release/MacroTyper-win-x64-standalone.exe
+#
+# .NET 런타임을 품지 않는 작은 exe 는 더 내지 않는다. 둘을 함께 내면 받는 사람이
+# 자기 PC 에 무엇이 깔려 있는지부터 알아야 하고, 우리는 업데이트할 때 상대가 어느 쪽을
+# 쓰는지 기억하고 있어야 한다. 69MB 한 번이 그 값보다 싸다.
 
 set -euo pipefail
 
@@ -22,10 +26,10 @@ cd "$(dirname "$0")/.."
 
 PROJECT="src/MacroTyper/MacroTyper.csproj"
 OUT="publish/release"
+DIR="publish/win-x64-standalone"
 
-# UpdatePlan.AssetNameFor 와 반드시 같아야 한다.
-LITE_NAME="MacroTyper-win-x64.exe"
-STANDALONE_NAME="MacroTyper-win-x64-standalone.exe"
+# UpdatePlan.AssetName 과 반드시 같아야 한다.
+NAME="MacroTyper-win-x64-standalone.exe"
 
 version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT" | head -1)
 
@@ -45,50 +49,40 @@ else
 fi
 
 mkdir -p "$OUT"
+rm -rf "$DIR"
 
-publish() {
-    local self_contained="$1" dir="$2" name="$3"
+# PublishSingleFile 은 관리 어셈블리만 번들에 넣는다. WPF 네이티브 라이브러리
+# (wpfgfx_cor3.dll, PresentationNative_cor3.dll, D3DCompiler_47_cor3.dll 등)는
+# IncludeNativeLibrariesForSelfExtract 가 꺼져 있으면 exe 옆에 따로 남고,
+# 그것들 없이는 창이 뜨지 않는다.
+#
+# 압축을 켜면 147MB 가 69MB 로 줄어든다. 시작할 때 푸느라 조금 더 걸리지만,
+# 업데이트마다 그 차이를 다시 받는 편이 더 비싸다.
+dotnet publish "$PROJECT" \
+    -c Release -r win-x64 \
+    --self-contained true \
+    -p:PublishSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:EnableCompressionInSingleFile=true \
+    -o "$DIR"
 
-    rm -rf "$dir"
+# exe 말고 실행에 필요한 것이 남아 있으면 그 릴리즈는 깨진 것이다.
+strays=$(find "$DIR" -type f ! -name 'MacroTyper.exe' ! -name '*.pdb' | wc -l | tr -d ' ')
 
-    # 압축을 켜면 standalone 이 147MB 에서 68MB 로 줄어든다.
-    # 시작할 때 푸느라 몇백 ms 를 더 쓰지만, 업데이트마다 그만큼을 다시 받는 편이 더 비싸다.
-    # lite 에는 켤 수 없다. 압축은 런타임을 품은 배포에서만 지원된다.
-    local compress=false
-    [ "$self_contained" = "true" ] && compress=true
+if [ "$strays" != "0" ]; then
+    echo >&2
+    echo "exe 옆에 파일이 남았다. 이대로 올리면 받은 사람은 실행하지 못한다:" >&2
+    find "$DIR" -type f ! -name 'MacroTyper.exe' ! -name '*.pdb' >&2
+    exit 1
+fi
 
-    # IncludeNativeLibrariesForSelfExtract 를 빠뜨리지 않는다.
-    # PublishSingleFile 은 관리 어셈블리만 번들에 넣는다. WPF 네이티브 라이브러리
-    # (wpfgfx_cor3.dll, PresentationNative_cor3.dll, D3DCompiler_47_cor3.dll 등)는
-    # 이 플래그가 꺼져 있으면 exe 옆에 따로 남는다. 그것들 없이는 창이 뜨지 않는데,
-    # 릴리즈에는 exe 하나만 올라가므로 받은 사람은 실행조차 못 한다.
-    # lite 에는 해당 없다. 설치된 런타임이 그 파일들을 갖고 있다.
-    dotnet publish "$PROJECT" \
-        -c Release -r win-x64 \
-        --self-contained "$self_contained" \
-        -p:PublishSingleFile=true \
-        -p:IncludeNativeLibrariesForSelfExtract=true \
-        -p:EnableCompressionInSingleFile="$compress" \
-        -o "$dir"
+cp "$DIR/MacroTyper.exe" "$OUT/$NAME"
 
-    cp "$dir/MacroTyper.exe" "$OUT/$name"
-
-    # exe 말고 실행에 필요한 것이 남아 있으면 그 릴리즈는 깨진 것이다.
-    local strays
-    strays=$(find "$dir" -type f ! -name 'MacroTyper.exe' ! -name '*.pdb' | wc -l | tr -d ' ')
-
-    if [ "$strays" != "0" ]; then
-        echo >&2
-        echo "exe 옆에 파일이 남았다. 이대로 올리면 받은 사람은 실행하지 못한다:" >&2
-        find "$dir" -type f ! -name 'MacroTyper.exe' ! -name '*.pdb' >&2
-        exit 1
-    fi
-}
-
-publish false publish/win-x64-lite       "$LITE_NAME"
-publish true  publish/win-x64-standalone "$STANDALONE_NAME"
+# 예전에 함께 내던 작은 exe 가 남아 있으면 치운다. 실수로 다시 올리지 않게 한다.
+rm -f "$OUT/MacroTyper-win-x64.exe"
+rm -rf publish/win-x64-lite
 
 echo
-ls -lh "$OUT"/*.exe
+ls -lh "$OUT/$NAME"
 echo
-echo "다음: scripts/sign-windows.sh $OUT/*.exe"
+echo "다음: scripts/sign-windows.sh $OUT/$NAME"

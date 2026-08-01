@@ -7,15 +7,14 @@ public static class UpdatePlan
 {
     /// <summary>
     /// 릴리즈에 올리는 파일 이름. 여기와 릴리즈가 어긋나면 업데이트가 조용히 멈춘다.
-    /// 이름을 바꾸려면 이전 버전들이 이미 이 이름을 찾고 있다는 것을 기억해야 한다.
+    ///
+    /// 이 이름은 이제 호환성의 일부다. 돌고 있는 예전 버전들이 이 이름을 찾으므로,
+    /// 바꾸는 순간 그들은 새 버전이 나와도 영영 알아채지 못한다.
+    /// 런타임을 품지 않는 작은 exe 를 함께 내던 시절의 이름이지만 그대로 둔다.
     /// </summary>
-    public static string AssetNameFor(AppVariant variant) => variant switch
-    {
-        AppVariant.Standalone => "MacroTyper-win-x64-standalone.exe",
-        _ => "MacroTyper-win-x64.exe",
-    };
+    public const string AssetName = "MacroTyper-win-x64-standalone.exe";
 
-    public static UpdateOffer? Decide(Version current, AppRelease? release, AppVariant variant)
+    public static UpdateOffer? Decide(Version current, AppRelease? release)
     {
         if (release is null)
             return null;
@@ -23,12 +22,10 @@ public static class UpdatePlan
         if (release.Version <= ReleaseFeed.Normalize(current))
             return null;
 
-        string wanted = AssetNameFor(variant);
-
-        // 이름이 정확히 맞는 것만 쓴다. lite 를 쓰는 사람에게 standalone 을 내려보내면
-        // 0.6MB 를 받던 사람이 68MB 를 받게 된다.
+        // 이름이 정확히 맞는 것만 쓴다. 릴리즈에는 펌웨어 hex 와 인증서도 함께 올라간다.
+        // 비슷한 것으로 대신 골랐다가는 exe 가 아닌 것을 exe 자리에 놓게 된다.
         ReleaseAsset? asset = release.Assets
-            .FirstOrDefault(a => string.Equals(a.Name, wanted, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(a => string.Equals(a.Name, AssetName, StringComparison.OrdinalIgnoreCase));
 
         if (asset is null || !IsTrustedDownloadUrl(asset.DownloadUrl))
             return null;

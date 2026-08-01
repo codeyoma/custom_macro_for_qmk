@@ -59,7 +59,7 @@ internal sealed class UpdateService : IDisposable
     {
         AppRelease? release = await _source.FetchLatestAsync(cancellation).ConfigureAwait(true);
 
-        Pending = UpdatePlan.Decide(AppIdentity.Current, release, AppIdentity.Variant);
+        Pending = UpdatePlan.Decide(AppIdentity.Current, release);
 
         return Pending;
     }
