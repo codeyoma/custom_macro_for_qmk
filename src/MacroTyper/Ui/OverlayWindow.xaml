@@ -86,10 +86,18 @@
                             MouseLeftButtonUp="OnCellClicked">
                         <Grid>
                             <StackPanel Margin="8,6">
-                                <TextBlock x:Name="Number"
-                                           Text="{Binding Number}"
-                                           FontSize="10"
-                                           Foreground="#6BFFFFFF" />
+                                <DockPanel>
+                                    <!-- 키를 눌러 주는 칸 표시. 글이 아니라 키가 나간다는 뜻이다. -->
+                                    <TextBlock x:Name="ShortcutMark" DockPanel.Dock="Right"
+                                               Text="&#x2328;" FontSize="12"
+                                               FontFamily="Segoe UI Symbol, Segoe UI"
+                                               Foreground="#9EFFFFFF"
+                                               Visibility="Collapsed" />
+                                    <TextBlock x:Name="Number"
+                                               Text="{Binding Number}"
+                                               FontSize="10"
+                                               Foreground="#6BFFFFFF" />
+                                </DockPanel>
                                 <TextBlock x:Name="Label"
                                            Text="{Binding Label}"
                                            FontSize="12"
@@ -145,6 +153,9 @@
                         </DataTrigger>
                         <DataTrigger Binding="{Binding AppendEnter}" Value="True">
                             <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsShortcut}" Value="True">
+                            <Setter TargetName="ShortcutMark" Property="Visibility" Value="Visible" />
                         </DataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>

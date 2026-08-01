@@ -154,7 +154,15 @@
                                 Background="White" BorderBrush="#E4E4DE" BorderThickness="1">
                             <Grid>
                                 <StackPanel Margin="4">
-                                    <TextBlock x:Name="SlotNumber" Text="{Binding Number}" FontSize="10" Foreground="#888780" />
+                                    <DockPanel>
+                                        <!-- 키를 눌러 주는 칸 표시. 글이 아니라 키가 나간다는 뜻이다. -->
+                                        <TextBlock x:Name="SlotShortcutMark" DockPanel.Dock="Right"
+                                                   Text="&#x2328;" FontSize="12" Foreground="#5F5E5A"
+                                                   FontFamily="Segoe UI Symbol, Segoe UI"
+                                                   ToolTip="키 조합을 눌러 주는 칸입니다"
+                                                   Visibility="Collapsed" />
+                                        <TextBlock x:Name="SlotNumber" Text="{Binding Number}" FontSize="10" Foreground="#888780" />
+                                    </DockPanel>
                                     <TextBlock x:Name="SlotLabel" Text="{Binding Label}" FontSize="12" Margin="0,2,0,0"
                                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="32" />
 
@@ -182,6 +190,9 @@
                             </DataTrigger>
                             <DataTrigger Binding="{Binding AppendEnter}" Value="True">
                                 <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsShortcut}" Value="True">
+                                <Setter TargetName="SlotShortcutMark" Property="Visibility" Value="Visible" />
                             </DataTrigger>
 
                             <!-- 키가 없는 자리. 칸은 차지하되 보이지 않아야 실물과 모양이 맞는다. -->

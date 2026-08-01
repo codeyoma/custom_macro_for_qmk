@@ -10,13 +10,18 @@ namespace MacroTyper.Ui;
 /// </summary>
 /// <param name="Preview">라벨 밑에 흐리게 깔 문장.</param>
 /// <param name="AppendEnter">오른쪽 아래 점으로 표시한다.</param>
+/// <param name="IsShortcut">
+/// 글을 넣는 대신 키를 눌러 주는 칸. 번호 옆에 기호로 표시한다.
+/// 누르기 전에 "이건 글이 아니라 키가 나간다"를 알 수 있어야 한다.
+/// </param>
 public sealed record OverlayCell(
     GridCellKind Kind,
     int Number,
     string Label,
     string Preview,
     bool IsEmpty,
-    bool AppendEnter)
+    bool AppendEnter,
+    bool IsShortcut)
 {
     public static OverlayCell From(GridCell cell, IReadOnlyList<Slot> slots) => cell.Kind switch
     {
@@ -31,13 +36,15 @@ public sealed record OverlayCell(
         slot.DisplayName,
         slot.Preview,
         slot.IsEmpty,
-        slot.AppendEnter);
+        slot.AppendEnter,
+        // 아직 조합을 안 넣은 칸에까지 기호를 달면 설정된 것처럼 보인다.
+        slot.Action == SlotAction.Shortcut && !slot.IsEmpty);
 
     /// <summary>지금 누르고 있는 그 키. 문장이 없고 번호도 없다.</summary>
     private static OverlayCell CheatKey { get; } =
-        new(GridCellKind.CheatKey, 0, "치트시트", string.Empty, false, false);
+        new(GridCellKind.CheatKey, 0, "치트시트", string.Empty, false, false, false);
 
     /// <summary>키가 없는 자리. 칸은 차지하되 보이지 않는다.</summary>
     private static OverlayCell Blank { get; } =
-        new(GridCellKind.Blank, 0, string.Empty, string.Empty, true, false);
+        new(GridCellKind.Blank, 0, string.Empty, string.Empty, true, false, false);
 }
