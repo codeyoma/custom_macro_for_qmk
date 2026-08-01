@@ -63,6 +63,14 @@ public sealed class SlotStore
         set => _memo = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// 새 버전이 나왔는지 이따금 GitHub 에 물어볼지.
+    ///
+    /// 이 프로그램이 하는 일 가운데 유일하게 바깥으로 나가는 통신이라 끌 수 있게 둔다.
+    /// 꺼도 트레이 메뉴에서 직접 확인하는 길은 남는다.
+    /// </summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     /// <summary>%APPDATA%\MacroTyper\slots.json 을 사용하는 기본 저장소.</summary>
     public static SlotStore OpenDefault()
     {
@@ -174,6 +182,9 @@ public sealed class SlotStore
         Rotation = parsed?.Rotation ?? GridRotation.None;
         CheatHotkey = parsed?.CheatHotkey ?? Hotkey.None;
         Memo = parsed?.Memo ?? string.Empty;
+
+        // 이 항목이 없던 시절의 파일은 켜 둔 것으로 읽는다.
+        CheckForUpdates = parsed?.CheckForUpdates ?? true;
     }
 
     private void WriteTo(string path)
@@ -187,6 +198,7 @@ public sealed class SlotStore
             _rotation,
             _cheatHotkey,
             _memo,
+            CheckForUpdates,
             _slots
                 .Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter, s.Action, s.Shortcut))
                 .ToArray());
@@ -256,8 +268,11 @@ public sealed class SlotStore
     }
 
     // 예전 파일도 그대로 읽힌다. 빠진 값은 기본값이 된다.
+    // checkForUpdates 만 bool? 이다. bool 로 두면 항목이 없는 예전 파일이 false 로 읽혀
+    // 업데이트 확인이 조용히 꺼진다.
     internal sealed record SlotFile(
-        int Version, GridRotation Rotation, Hotkey CheatHotkey, string? Memo, SlotEntry[] Slots);
+        int Version, GridRotation Rotation, Hotkey CheatHotkey, string? Memo,
+        bool? CheckForUpdates, SlotEntry[] Slots);
 
     // action 과 shortcut 이 없는 예전 파일은 문장 슬롯으로 읽힌다.
     internal sealed record SlotEntry(

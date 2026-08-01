@@ -432,6 +432,39 @@ public class SlotStoreTests : IDisposable
         Assert.Equal(string.Empty, LoadedStore().Memo);
     }
 
+    // --- 새 버전 자동 확인 ---
+
+    /// <summary>
+    /// 기본값은 켬이다. 새 버전이 나온 줄 모르고 옛 버전을 계속 쓰는 쪽이
+    /// 하루 한 번 GitHub 에 묻는 것보다 손해가 크다.
+    /// </summary>
+    [Fact]
+    public void CheckForUpdates_ByDefault_IsOn()
+    {
+        Assert.True(LoadedStore().CheckForUpdates);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsCheckForUpdates()
+    {
+        var store = LoadedStore();
+        store.CheckForUpdates = false;
+        store.Save();
+
+        Assert.False(LoadedStore().CheckForUpdates);
+    }
+
+    /// <summary>이 항목이 없던 시절의 파일은 켜 둔 것으로 읽는다.</summary>
+    [Fact]
+    public void Load_WithoutCheckForUpdatesField_FallsBackToOn()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "slots": [] }
+            """);
+
+        Assert.True(LoadedStore().CheckForUpdates);
+    }
+
     // --- 치트시트를 여는 전역 단축키 ---
 
     [Fact]

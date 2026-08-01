@@ -6,8 +6,10 @@ using System.Windows.Media;
 using Hardcodet.Wpf.TaskbarNotification;
 using MacroTyper.Core;
 using MacroTyper.Core.Hid;
+using MacroTyper.Core.Update;
 using MacroTyper.Interop;
 using MacroTyper.Ui;
+using MacroTyper.Update;
 
 namespace MacroTyper;
 
@@ -23,9 +25,21 @@ public partial class App : Application
     private OverlayWindow _overlay = null!;
     private ManagerWindow? _manager;
     private TaskbarIcon? _tray;
+    private UpdateService? _updates;
+    private MenuItem? _updateMenuItem;
 
     /// <summary>단축키로 열어 둔 상태. 레이어 키를 떼도 닫히지 않는다.</summary>
     private bool _overlayPinned;
+
+    /// <summary>
+    /// 지금 떠 있는 풍선이 업데이트 알림인지.
+    /// 풍선 클릭은 어떤 풍선이든 같은 이벤트로 오므로, 삽입 실패 알림을 눌렀다고
+    /// 업데이트가 시작되어서는 안 된다.
+    /// </summary>
+    private bool _balloonOffersUpdate;
+
+    /// <summary>교체가 진행 중. 두 번 누르면 같은 파일을 두 번 받는다.</summary>
+    private bool _updating;
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
@@ -34,6 +48,9 @@ public partial class App : Application
             Shutdown();
             return;
         }
+
+        // 지난 업데이트가 밀어 둔 이전 버전을 치운다. 그때는 아직 돌고 있어서 지울 수 없었다.
+        AppIdentity.CleanUpLeftovers();
 
         _store = SlotStore.OpenDefault();
         _store.Load();
@@ -52,6 +69,7 @@ public partial class App : Application
         _overlay.TryRegisterHotkey(_store.CheatHotkey);
 
         CreateTrayIcon();
+        StartUpdateChecks();
 
         _listener = new HidListener();
         _listener.EventReceived += OnMacroEvent;
@@ -62,6 +80,7 @@ public partial class App : Application
     private void OnExit(object sender, ExitEventArgs e)
     {
         _listener?.Dispose();
+        _updates?.Dispose();
         _tray?.Dispose();
         _singleInstance?.Dispose();
     }
@@ -151,6 +170,7 @@ public partial class App : Application
             _ => "문장을 넣지 못했습니다.",
         };
 
+        _balloonOffersUpdate = false;
         _tray?.ShowBalloonTip($"{slot.Index + 1}번 삽입 실패", message, BalloonIcon.Warning);
     }
 
@@ -255,11 +275,27 @@ public partial class App : Application
         };
 
         _tray.TrayMouseDoubleClick += (_, _) => OpenManager();
+
+        // 풍선은 몇 초 뒤에 사라진다. 그때 자리를 비웠던 사람도 트레이 메뉴에서 다시 찾을 수 있어야 한다.
+        _tray.TrayBalloonTipClicked += (_, _) =>
+        {
+            if (_balloonOffersUpdate && _updates?.Pending is { } offer)
+                StartUpdate(offer);
+        };
     }
 
     private ContextMenu BuildTrayMenu()
     {
         var menu = new ContextMenu();
+
+        // 새 버전을 찾기 전에는 보이지 않는다.
+        _updateMenuItem = new MenuItem { Header = "새 버전 받기", Visibility = Visibility.Collapsed, FontWeight = FontWeights.Bold };
+        _updateMenuItem.Click += (_, _) =>
+        {
+            if (_updates?.Pending is { } offer)
+                StartUpdate(offer);
+        };
+        menu.Items.Add(_updateMenuItem);
 
         var open = new MenuItem { Header = "문장 관리" };
         open.Click += (_, _) => OpenManager();
@@ -274,6 +310,19 @@ public partial class App : Application
             autoStart.IsChecked = AutoStart.IsEnabled;
         };
         menu.Items.Add(autoStart);
+
+        var autoCheck = new MenuItem
+        {
+            Header = "새 버전 자동 확인",
+            IsCheckable = true,
+            IsChecked = _store.CheckForUpdates,
+        };
+        autoCheck.Click += (_, _) => SetUpdateChecking(autoCheck.IsChecked);
+        menu.Items.Add(autoCheck);
+
+        var checkNow = new MenuItem { Header = "지금 새 버전 확인" };
+        checkNow.Click += (_, _) => CheckForUpdatesNow();
+        menu.Items.Add(checkNow);
 
         var elevate = new MenuItem { Header = "관리자 권한으로 재시작" };
         elevate.Click += (_, _) => RestartElevated();
@@ -308,6 +357,234 @@ public partial class App : Application
 
         _manager.Activate();
     }
+
+    // --- 새 버전 ---
+
+    private void StartUpdateChecks()
+    {
+        _updates = new UpdateService();
+        _updates.UpdateFound += (_, offer) => AnnounceUpdate(offer);
+
+        // 개발 중의 빌드는 스스로 갈아끼울 수 없다. 알려 봐야 할 수 있는 일이 없다.
+        _updates.Enabled = _store.CheckForUpdates && AppIdentity.IsSingleFileBuild;
+    }
+
+    private void SetUpdateChecking(bool enabled)
+    {
+        _store.CheckForUpdates = enabled;
+
+        if (_updates is not null)
+            _updates.Enabled = enabled && AppIdentity.IsSingleFileBuild;
+
+        try
+        {
+            _store.Save();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // 저장에 실패해도 이번 실행 동안은 설정대로 동작한다.
+        }
+    }
+
+    private void AnnounceUpdate(UpdateOffer offer)
+    {
+        if (_updateMenuItem is not null)
+        {
+            _updateMenuItem.Header = $"새 버전 {Describe(offer.Version)} 받기";
+            _updateMenuItem.Visibility = Visibility.Visible;
+        }
+
+        _balloonOffersUpdate = true;
+        _tray?.ShowBalloonTip(
+            $"새 버전 {Describe(offer.Version)}",
+            "눌러서 업데이트합니다. 등록해 둔 문장은 그대로 남습니다.",
+            BalloonIcon.Info);
+    }
+
+    private async void CheckForUpdatesNow()
+    {
+        if (_updates is null)
+            return;
+
+        UpdateOffer? offer = await _updates.CheckAsync();
+
+        if (offer is null)
+        {
+            MessageBox.Show(
+                $"최신 버전입니다. (현재 {Describe(AppIdentity.Current)})",
+                "문장 매크로",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        AnnounceUpdate(offer);
+        StartUpdate(offer);
+    }
+
+    /// <summary>
+    /// 새 exe 를 받아 지금 것을 대신하게 하고 다시 시작한다.
+    ///
+    /// 사용자가 명시적으로 누른 뒤에만 시작한다. 프로그램이 스스로 바뀌는 일을
+    /// 모르는 사이에 해서는 안 된다.
+    /// </summary>
+    private async void StartUpdate(UpdateOffer offer)
+    {
+        if (_updating || _updates is null)
+            return;
+
+        MessageBoxResult answer = MessageBox.Show(
+            $"""
+            새 버전이 나왔습니다.
+
+                지금    {Describe(AppIdentity.Current)}
+                새것    {Describe(offer.Version)}
+
+            {DescribeDownload(offer.Asset.SizeBytes)} 지금 프로그램을 대신하고 다시 시작합니다.
+            등록해 둔 문장과 메모, 단축키는 그대로 남습니다.
+            """,
+            "문장 매크로 업데이트",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Question);
+
+        if (answer != MessageBoxResult.OK)
+            return;
+
+        _updating = true;
+        string tooltip = _tray?.ToolTipText ?? "문장 매크로";
+
+        _balloonOffersUpdate = false;
+        _tray?.ShowBalloonTip(
+            "업데이트를 내려받는 중",
+            "다 받으면 저절로 다시 시작합니다. 그때까지 그대로 쓰셔도 됩니다.",
+            BalloonIcon.Info);
+
+        // 진행률은 퍼센트가 바뀔 때만 반영한다. 조각마다 갱신하면 65MB 를 받는 동안
+        // 트레이 아이콘에 수백 번 알림을 보내게 된다.
+        int lastPercent = -1;
+
+        var progress = new Progress<double>(fraction =>
+        {
+            int percent = (int)(fraction * 100);
+
+            if (percent == lastPercent || _tray is null)
+                return;
+
+            lastPercent = percent;
+            _tray.ToolTipText = $"문장 매크로 — 업데이트 내려받는 중 {percent}%";
+        });
+
+        UpdateResult result = await UpdateInstaller.InstallAsync(offer, _updates.Source, progress);
+
+        if (result.IsReady)
+        {
+            RestartForUpdate();
+            return;
+        }
+
+        _updating = false;
+
+        if (_tray is not null)
+            _tray.ToolTipText = tooltip;
+
+        OfferManualDownload(offer, result);
+    }
+
+    /// <summary>
+    /// 자동 교체가 막혔을 때. 여기서 끝내면 사용자는 새 버전을 받을 길을 잃는다.
+    /// </summary>
+    private void OfferManualDownload(UpdateOffer offer, UpdateResult result)
+    {
+        MessageBoxResult answer = MessageBox.Show(
+            $"""
+            업데이트하지 못했습니다.
+
+            {result.Message}
+
+            받는 곳을 브라우저로 열까요?
+            """,
+            "문장 매크로 업데이트",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        string page = string.IsNullOrEmpty(offer.PageUrl) ? UpdateService.ReleasesPageUrl : offer.PageUrl;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(page) { UseShellExecute = true });
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // 브라우저가 없다. 여기서 더 해 줄 것이 없다.
+        }
+    }
+
+    /// <summary>
+    /// 새 exe 로 다시 시작한다.
+    ///
+    /// 먼저 자리를 비운다. 뮤텍스를 쥔 채로 새 프로세스를 띄우면 그쪽이 "이미 실행 중"으로
+    /// 죽어 버리고, HID 장치도 놓아주어야 새 프로세스가 매크로패드를 열 수 있다.
+    /// </summary>
+    private void RestartForUpdate()
+    {
+        string executable = AppIdentity.ExecutablePath;
+
+        _listener?.Dispose();
+        _updates?.Dispose();
+        _updates = null;
+        _tray?.Dispose();
+        _tray = null;
+
+        ReleaseSingleInstance();
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(executable) { UseShellExecute = true });
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            MessageBox.Show(
+                "교체는 끝났습니다. 프로그램을 직접 다시 실행해 주세요.",
+                "문장 매크로",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
+        Shutdown();
+    }
+
+    private void ReleaseSingleInstance()
+    {
+        if (_singleInstance is null)
+            return;
+
+        try
+        {
+            _singleInstance.ReleaseMutex();
+        }
+        catch (ApplicationException)
+        {
+            // 이 스레드가 쥐고 있지 않았다. 프로세스가 끝나면 어차피 풀린다.
+        }
+
+        _singleInstance.Dispose();
+        _singleInstance = null;
+    }
+
+    /// <summary>끝자리 0 은 접는다. 0.2.0.0 보다 0.2.0 이 읽기 쉽다.</summary>
+    private static string Describe(Version version) =>
+        version.Revision > 0 ? version.ToString(4) : version.ToString(3);
+
+    /// <summary>조사까지 함께 만든다. 크기를 모를 때도 문장이 어색해지지 않아야 한다.</summary>
+    private static string DescribeDownload(long bytes) => bytes switch
+    {
+        <= 0 => "새 파일을 내려받아",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#}KB를 내려받아",
+        _ => $"{bytes / (1024.0 * 1024.0):0.#}MB를 내려받아",
+    };
 
     /// <summary>
     /// 관리자 권한으로 뜬 창에는 일반 권한에서 입력을 넣을 수 없다.

@@ -9,6 +9,20 @@
     <RootNamespace>MacroTyper</RootNamespace>
     <AssemblyName>MacroTyper</AssemblyName>
 
+    <!--
+      릴리즈 태그와 반드시 같아야 한다. 이 값이 낮으면 이미 최신인데도 계속 업데이트를 권하고,
+      높으면 새 버전이 나와도 알아채지 못한다.
+    -->
+    <Version>0.2.0</Version>
+
+    <!--
+      standalone 과 lite 는 릴리즈에 서로 다른 파일로 올라간다.
+      실행 중에는 런타임이 품어져 있는지 확실히 알 방법이 없어서 빌드할 때 새겨 둔다.
+      이 값이 틀리면 lite 를 쓰던 사람이 68MB 를 받거나, 그 반대로 런타임 없는 exe 를 받는다.
+    -->
+    <MacroTyperSelfContained Condition="'$(SelfContained)' != ''">$(SelfContained)</MacroTyperSelfContained>
+    <MacroTyperSelfContained Condition="'$(MacroTyperSelfContained)' == ''">false</MacroTyperSelfContained>
+
     <!-- PerMonitorV2 DPI 인식과 asInvoker 권한을 선언한다. 오버레이 위치 계산에 필수. -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
@@ -31,6 +45,11 @@
       Hardcodet 2.0.1 은 net8.0-windows7.0 자산을 명시적으로 포함한다.
     -->
     <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AppIdentity 가 어느 exe 를 받아야 하는지 판별하는 근거. -->
+    <AssemblyMetadata Include="SelfContained" Value="$(MacroTyperSelfContained)" />
   </ItemGroup>
 
   <ItemGroup>
