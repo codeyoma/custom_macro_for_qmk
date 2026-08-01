@@ -57,14 +57,32 @@ publish() {
     local compress=false
     [ "$self_contained" = "true" ] && compress=true
 
+    # IncludeNativeLibrariesForSelfExtract 를 빠뜨리지 않는다.
+    # PublishSingleFile 은 관리 어셈블리만 번들에 넣는다. WPF 네이티브 라이브러리
+    # (wpfgfx_cor3.dll, PresentationNative_cor3.dll, D3DCompiler_47_cor3.dll 등)는
+    # 이 플래그가 꺼져 있으면 exe 옆에 따로 남는다. 그것들 없이는 창이 뜨지 않는데,
+    # 릴리즈에는 exe 하나만 올라가므로 받은 사람은 실행조차 못 한다.
+    # lite 에는 해당 없다. 설치된 런타임이 그 파일들을 갖고 있다.
     dotnet publish "$PROJECT" \
         -c Release -r win-x64 \
         --self-contained "$self_contained" \
         -p:PublishSingleFile=true \
+        -p:IncludeNativeLibrariesForSelfExtract=true \
         -p:EnableCompressionInSingleFile="$compress" \
         -o "$dir"
 
     cp "$dir/MacroTyper.exe" "$OUT/$name"
+
+    # exe 말고 실행에 필요한 것이 남아 있으면 그 릴리즈는 깨진 것이다.
+    local strays
+    strays=$(find "$dir" -type f ! -name 'MacroTyper.exe' ! -name '*.pdb' | wc -l | tr -d ' ')
+
+    if [ "$strays" != "0" ]; then
+        echo >&2
+        echo "exe 옆에 파일이 남았다. 이대로 올리면 받은 사람은 실행하지 못한다:" >&2
+        find "$dir" -type f ! -name 'MacroTyper.exe' ! -name '*.pdb' >&2
+        exit 1
+    fi
 }
 
 publish false publish/win-x64-lite       "$LITE_NAME"
