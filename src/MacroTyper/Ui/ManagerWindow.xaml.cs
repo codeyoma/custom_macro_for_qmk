@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -7,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using MacroTyper.Core;
 using MacroTyper.Interop;
+using Microsoft.Win32;
 
 namespace MacroTyper.Ui;
 
@@ -47,6 +49,120 @@ public partial class ManagerWindow : Window
         RefreshHotkeyButton();
 
         MemoBox.Text = _store.Memo;
+    }
+
+    // --- 설정 백업 ---
+
+    private void OnSettingsClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button)
+            return;
+
+        menu.PlacementTarget = button;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
+    private void OnExport(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "설정 내보내기",
+            FileName = $"macrotyper-{DateTime.Now:yyyyMMdd}.json",
+            Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            DefaultExt = ".json",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        // 메모는 포커스가 빠져야 저장되므로, 내보내기 전에 지금 내용을 확실히 반영한다.
+        _store.Memo = MemoBox.Text;
+
+        try
+        {
+            _store.ExportTo(dialog.FileName);
+            HintText.Text = "내보냈습니다";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            HintText.Text = "내보내지 못했습니다. 다른 위치를 골라보세요";
+        }
+    }
+
+    private void OnImport(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "설정 가져오기",
+            Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        // 지금 설정을 통째로 덮어쓴다. 되돌릴 수 없으므로 한 번 묻는다.
+        MessageBoxResult answer = MessageBox.Show(
+            this,
+            "지금 등록된 문장과 설정을 가져온 내용으로 모두 바꿉니다. 계속할까요?",
+            "설정 가져오기",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.OK)
+            return;
+
+        if (!_store.TryImportFrom(dialog.FileName))
+        {
+            HintText.Text = "읽을 수 없는 파일입니다. 설정은 그대로 두었습니다";
+            return;
+        }
+
+        _appliedRotation = null;
+        MemoBox.Text = _store.Memo;
+        _savedMemo = _store.Memo;
+
+        RefreshGrid();
+        RefreshHotkeyButton();
+        _applyHotkey(_store.CheatHotkey);
+        _slotsChanged();
+
+        ClearSelection();
+        HintText.Text = "가져왔습니다";
+    }
+
+    private void OnOpenSettingsFolder(object sender, RoutedEventArgs e)
+    {
+        string folder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MacroTyper");
+
+        try
+        {
+            Directory.CreateDirectory(folder);
+            Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            HintText.Text = folder;
+        }
+    }
+
+    /// <summary>가져오기로 내용이 통째로 바뀌면 편집 중이던 슬롯은 의미가 없어진다.</summary>
+    private void ClearSelection()
+    {
+        _selectedIndex = -1;
+
+        EditingHeader.Text = "슬롯을 선택하세요";
+        LabelBox.Text = string.Empty;
+        TextBoxContent.Text = string.Empty;
+        AppendEnterBox.IsChecked = false;
+
+        LabelBox.IsEnabled = false;
+        TextBoxContent.IsEnabled = false;
+        AppendEnterBox.IsEnabled = false;
+        SaveButton.IsEnabled = false;
+        TestButton.IsEnabled = false;
     }
 
     // --- 늘 떠 있는 메모 ---

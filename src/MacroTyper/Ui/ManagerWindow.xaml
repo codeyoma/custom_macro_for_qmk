@@ -23,6 +23,21 @@
                         ToolTip="매크로패드를 돌려 놓은 방향에 맞춰 격자를 90도씩 돌립니다"
                         Click="OnRotate" />
 
+                <!-- 설정 백업. 자주 쓰는 기능이 아니라 메뉴로 접어 둔다. -->
+                <Button x:Name="SettingsButton" DockPanel.Dock="Right"
+                        Content="설정 ▾" Margin="0,0,10,0" Padding="10,4" Height="28"
+                        VerticalAlignment="Center"
+                        Click="OnSettingsClicked">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="JSON 으로 내보내기" Click="OnExport" />
+                            <MenuItem Header="JSON 에서 가져오기" Click="OnImport" />
+                            <Separator />
+                            <MenuItem Header="설정 파일 폴더 열기" Click="OnOpenSettingsFolder" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
                 <!-- 매크로패드 없이도 치트시트를 열 수 있는 전역 단축키. -->
                 <Button x:Name="HotkeyButton" DockPanel.Dock="Right"
                         Content="단축키 없음" Margin="0,0,10,0" Padding="12,4" Height="28"

@@ -254,6 +254,125 @@ public class SlotStoreTests : IDisposable
         Assert.Equal(GridRotation.None, store.Rotation);
     }
 
+    // --- 내보내기와 가져오기 ---
+
+    [Fact]
+    public void ExportTo_WritesFileThatCanBeLoadedBack()
+    {
+        string exported = Path.Combine(_dir, "backup.json");
+
+        var store = LoadedStore();
+        store.Set(new Slot(2, "주소", "서울특별시", true));
+        store.Memo = "메모 내용";
+        store.Rotation = GridRotation.Clockwise90;
+        store.ExportTo(exported);
+
+        var loaded = new SlotStore(exported);
+        loaded.Load();
+
+        Assert.Equal("주소", loaded[2].Label);
+        Assert.True(loaded[2].AppendEnter);
+        Assert.Equal("메모 내용", loaded.Memo);
+        Assert.Equal(GridRotation.Clockwise90, loaded.Rotation);
+    }
+
+    /// <summary>내보내기는 원래 쓰던 파일을 건드리지 않는다.</summary>
+    [Fact]
+    public void ExportTo_DoesNotTouchTheWorkingFile()
+    {
+        var store = LoadedStore();
+        store.Set(new Slot(0, "라벨", "본문", false));
+        store.Save();
+
+        store.Set(new Slot(0, "바뀐 라벨", "바뀐 본문", false));
+        store.ExportTo(Path.Combine(_dir, "backup.json"));
+
+        // 저장하지 않은 변경은 원래 파일에 반영되지 않아야 한다.
+        Assert.Equal("라벨", LoadedStore()[0].Label);
+    }
+
+    [Fact]
+    public void ExportTo_CreatesMissingDirectory()
+    {
+        string nested = Path.Combine(_dir, "some", "where", "backup.json");
+
+        LoadedStore().ExportTo(nested);
+
+        Assert.True(File.Exists(nested));
+    }
+
+    [Fact]
+    public void TryImportFrom_ReplacesCurrentSettings()
+    {
+        string source = Path.Combine(_dir, "source.json");
+        var origin = new SlotStore(source);
+        origin.Load();
+        origin.Set(new Slot(5, "가져온 라벨", "가져온 본문", true));
+        origin.Memo = "가져온 메모";
+        origin.Save();
+
+        var target = LoadedStore();
+        bool ok = target.TryImportFrom(source);
+
+        Assert.True(ok);
+        Assert.Equal("가져온 라벨", target[5].Label);
+        Assert.Equal("가져온 메모", target.Memo);
+    }
+
+    /// <summary>
+    /// 가져온 내용은 원래 쓰던 파일에도 남아야 한다.
+    /// 그러지 않으면 프로그램을 껐다 켰을 때 되돌아간다.
+    /// </summary>
+    [Fact]
+    public void TryImportFrom_PersistsToWorkingFile()
+    {
+        string source = Path.Combine(_dir, "source.json");
+        var origin = new SlotStore(source);
+        origin.Load();
+        origin.Set(new Slot(1, "옮겨온 것", "본문", false));
+        origin.Save();
+
+        LoadedStore().TryImportFrom(source);
+
+        Assert.Equal("옮겨온 것", LoadedStore()[1].Label);
+    }
+
+    [Fact]
+    public void TryImportFrom_MissingFile_ReturnsFalse()
+    {
+        Assert.False(LoadedStore().TryImportFrom(Path.Combine(_dir, "없는파일.json")));
+    }
+
+    /// <summary>가져오기에 실패했다고 쓰던 설정이 날아가면 안 된다.</summary>
+    [Fact]
+    public void TryImportFrom_CorruptFile_KeepsCurrentSettings()
+    {
+        string broken = Path.Combine(_dir, "broken.json");
+        File.WriteAllText(broken, "{ 이건 json 이 아니다");
+
+        var store = LoadedStore();
+        store.Set(new Slot(0, "원래 라벨", "원래 본문", false));
+
+        bool ok = store.TryImportFrom(broken);
+
+        Assert.False(ok);
+        Assert.Equal("원래 라벨", store[0].Label);
+    }
+
+    [Fact]
+    public void TryImportFrom_CorruptFile_DoesNotBackUpTheSourceFile()
+    {
+        string broken = Path.Combine(_dir, "broken.json");
+        File.WriteAllText(broken, "{ 이건 json 이 아니다");
+
+        LoadedStore().TryImportFrom(broken);
+
+        // 손상 백업은 '쓰던 파일'을 지킬 때만 만든다.
+        // 남의 파일을 읽다 실패했다고 그 파일을 옮겨 버리면 안 된다.
+        Assert.True(File.Exists(broken));
+        Assert.Empty(Directory.GetFiles(_dir, "broken.corrupt-*.json"));
+    }
+
     // --- 화면 아래에 늘 떠 있는 메모 ---
 
     [Fact]

@@ -101,7 +101,7 @@ public sealed class SlotStore
         SlotFile? parsed;
         try
         {
-            parsed = JsonSerializer.Deserialize<SlotFile>(File.ReadAllText(_filePath), JsonOptions);
+            parsed = Read(_filePath);
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -110,6 +110,64 @@ public sealed class SlotStore
             return;
         }
 
+        Apply(parsed);
+    }
+
+    /// <summary>임시 파일에 쓴 뒤 교체한다. 저장 중 중단되어도 기존 파일이 남는다.</summary>
+    public void Save() => WriteTo(_filePath);
+
+    /// <summary>
+    /// 지금 설정을 다른 파일로 내보낸다. 쓰던 파일은 건드리지 않는다.
+    /// 프로그램을 새로 받기 전에 백업해 두거나 다른 기계로 옮길 때 쓴다.
+    /// </summary>
+    public void ExportTo(string path) => WriteTo(path);
+
+    /// <summary>
+    /// 내보내 둔 파일에서 설정을 되돌린다. 성공하면 쓰던 파일에도 바로 기록한다.
+    /// 그러지 않으면 프로그램을 껐다 켰을 때 되돌아간다.
+    ///
+    /// 읽기에 실패하면 지금 설정을 그대로 두고 <c>false</c>를 돌려준다.
+    /// 남의 파일이 깨졌다고 쓰던 설정까지 잃을 이유는 없다.
+    /// </summary>
+    public bool TryImportFrom(string path)
+    {
+        SlotFile? parsed;
+
+        try
+        {
+            if (!File.Exists(path))
+                return false;
+
+            parsed = Read(path);
+        }
+        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // 손상 백업은 쓰던 파일을 지킬 때만 만든다. 남의 파일을 옮겨 버리면 안 된다.
+            return false;
+        }
+
+        if (parsed is null)
+            return false;
+
+        Apply(parsed);
+
+        try
+        {
+            Save();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // 이번 실행 동안은 가져온 설정으로 돌아간다.
+        }
+
+        return true;
+    }
+
+    private static SlotFile? Read(string path) =>
+        JsonSerializer.Deserialize<SlotFile>(File.ReadAllText(path), JsonOptions);
+
+    private void Apply(SlotFile? parsed)
+    {
         _slots = parsed?.Slots is { } entries ? Normalize(entries) : CreateEmptySet();
 
         // 속성 setter 를 거쳐야 파일에 적힌 엉뚱한 값이 걸러진다.
@@ -118,10 +176,9 @@ public sealed class SlotStore
         Memo = parsed?.Memo ?? string.Empty;
     }
 
-    /// <summary>임시 파일에 쓴 뒤 교체한다. 저장 중 중단되어도 기존 파일이 남는다.</summary>
-    public void Save()
+    private void WriteTo(string path)
     {
-        string? dir = Path.GetDirectoryName(_filePath);
+        string? dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
@@ -132,9 +189,9 @@ public sealed class SlotStore
             _memo,
             _slots.Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter)).ToArray());
 
-        string temp = _filePath + ".tmp";
+        string temp = path + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(payload, JsonOptions));
-        File.Move(temp, _filePath, overwrite: true);
+        File.Move(temp, path, overwrite: true);
     }
 
     /// <summary>슬롯 하나를 갈아끼운다. <paramref name="slot"/>의 인덱스 위치에 놓인다.</summary>
