@@ -1,3 +1,4 @@
+using MacroTyper.Core;
 using MacroTyper.Core.Input;
 
 namespace MacroTyper.Tests;
@@ -188,6 +189,98 @@ public class InputBuilderTests
         Assert.Equal('A', inputs[0].Data.Keyboard.Scan);
         Assert.Equal(VirtualKeys.Return, inputs[2].Data.Keyboard.VirtualKey);
         Assert.True(IsKeyUp(inputs[3]));
+    }
+
+    // --- 키 조합 눌러 주기 ---
+
+    private const ushort VkControl = 0x11;
+    private const ushort VkShift = 0x10;
+    private const ushort VkAlt = 0x12;
+    private const ushort VkWin = 0x5B;
+    private const uint VkC = 0x43;
+    private const uint VkF5 = 0x74;
+
+    [Fact]
+    public void BuildShortcut_Unset_ProducesNothing()
+    {
+        Assert.Empty(InputBuilder.BuildShortcut(Hotkey.None));
+    }
+
+    [Fact]
+    public void BuildShortcut_SingleKeyWithoutModifier_PressesAndReleasesIt()
+    {
+        var inputs = InputBuilder.BuildShortcut(new Hotkey(HotkeyModifiers.None, VkF5));
+
+        Assert.Equal(2, inputs.Length);
+        Assert.Equal(VkF5, inputs[0].Data.Keyboard.VirtualKey);
+        Assert.False(IsKeyUp(inputs[0]));
+        Assert.True(IsKeyUp(inputs[1]));
+    }
+
+    /// <summary>
+    /// 보조 키는 먼저 누르고 나중에 뗀다. 순서가 어긋나면 조합이 아니라
+    /// 낱개 키를 따로 누른 것이 된다.
+    /// </summary>
+    [Fact]
+    public void BuildShortcut_WrapsMainKeyInsideModifier()
+    {
+        var inputs = InputBuilder.BuildShortcut(new Hotkey(HotkeyModifiers.Control, VkC));
+
+        Assert.Equal(4, inputs.Length);
+
+        Assert.Equal(VkControl, inputs[0].Data.Keyboard.VirtualKey);
+        Assert.False(IsKeyUp(inputs[0]));
+
+        Assert.Equal(VkC, inputs[1].Data.Keyboard.VirtualKey);
+        Assert.False(IsKeyUp(inputs[1]));
+
+        Assert.Equal(VkC, inputs[2].Data.Keyboard.VirtualKey);
+        Assert.True(IsKeyUp(inputs[2]));
+
+        Assert.Equal(VkControl, inputs[3].Data.Keyboard.VirtualKey);
+        Assert.True(IsKeyUp(inputs[3]));
+    }
+
+    /// <summary>보조 키가 여럿이면 누른 역순으로 뗀다.</summary>
+    [Fact]
+    public void BuildShortcut_ReleasesModifiersInReverseOrder()
+    {
+        var inputs = InputBuilder.BuildShortcut(
+            new Hotkey(HotkeyModifiers.Control | HotkeyModifiers.Shift, VkC));
+
+        Assert.Equal(6, inputs.Length);
+
+        Assert.Equal(VkControl, inputs[0].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkShift, inputs[1].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkC, inputs[2].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkC, inputs[3].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkShift, inputs[4].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkControl, inputs[5].Data.Keyboard.VirtualKey);
+    }
+
+    [Fact]
+    public void BuildShortcut_WithAllModifiers_PressesEachOnce()
+    {
+        var all = HotkeyModifiers.Control | HotkeyModifiers.Alt | HotkeyModifiers.Shift | HotkeyModifiers.Windows;
+
+        var inputs = InputBuilder.BuildShortcut(new Hotkey(all, VkC));
+
+        Assert.Equal(10, inputs.Length);
+        Assert.Equal(VkControl, inputs[0].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkAlt, inputs[1].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkShift, inputs[2].Data.Keyboard.VirtualKey);
+        Assert.Equal(VkWin, inputs[3].Data.Keyboard.VirtualKey);
+    }
+
+    /// <summary>조합을 보낼 때는 유니코드 경로를 쓰지 않는다. 진짜 키를 눌러야 앱이 단축키로 받는다.</summary>
+    [Fact]
+    public void BuildShortcut_NeverUsesUnicodeFlag()
+    {
+        var inputs = InputBuilder.BuildShortcut(
+            new Hotkey(HotkeyModifiers.Control | HotkeyModifiers.Alt, VkC));
+
+        Assert.All(inputs, i => Assert.False(IsUnicode(i)));
+        Assert.All(inputs, i => Assert.Equal(NativeInput.TypeKeyboard, i.Type));
     }
 
     [Fact]

@@ -72,7 +72,20 @@
 
         <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E4E4DE" BorderThickness="0,1,0,0" Padding="16">
             <StackPanel>
-                <TextBlock x:Name="EditingHeader" Text="슬롯을 선택하세요" FontSize="12" Foreground="#5F5E5A" Margin="0,0,0,10" />
+                <DockPanel Margin="0,0,0,10">
+                    <TextBlock x:Name="EditingHeader" Text="슬롯을 선택하세요" FontSize="12" Foreground="#5F5E5A"
+                               VerticalAlignment="Center" />
+
+                    <!-- 이 칸이 문장을 넣을지 키 조합을 누를지 고른다. -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <RadioButton x:Name="TextModeRadio" Content="문장" GroupName="SlotAction"
+                                     IsChecked="True" IsEnabled="False" VerticalAlignment="Center"
+                                     Checked="OnActionModeChanged" />
+                        <RadioButton x:Name="ShortcutModeRadio" Content="단축키" GroupName="SlotAction"
+                                     Margin="12,0,0,0" IsEnabled="False" VerticalAlignment="Center"
+                                     Checked="OnActionModeChanged" />
+                    </StackPanel>
+                </DockPanel>
 
                 <Grid Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
@@ -84,7 +97,8 @@
                         <TextBlock Text="라벨 (치트시트에 표시)" FontSize="11" Foreground="#5F5E5A" Margin="0,0,0,4" />
                         <TextBox x:Name="LabelBox" Height="30" VerticalContentAlignment="Center" Padding="8,0" IsEnabled="False" />
                     </StackPanel>
-                    <StackPanel Grid.Column="2">
+
+                    <StackPanel x:Name="TextPane" Grid.Column="2">
                         <TextBlock Text="삽입될 문장" FontSize="11" Foreground="#5F5E5A" Margin="0,0,0,4" />
                         <TextBox x:Name="TextBoxContent"
                                  Height="110"
@@ -96,10 +110,22 @@
                                  Padding="8,6"
                                  IsEnabled="False" />
                     </StackPanel>
+
+                    <StackPanel x:Name="ShortcutPane" Grid.Column="2" Visibility="Collapsed">
+                        <TextBlock Text="눌러 줄 키 조합" FontSize="11" Foreground="#5F5E5A" Margin="0,0,0,4" />
+                        <Button x:Name="SlotShortcutButton"
+                                Content="조합 없음"
+                                Height="36" Width="220" HorizontalAlignment="Left"
+                                Click="OnSlotShortcutClicked" />
+                        <TextBlock Text="버튼을 누른 뒤 원하는 조합을 누르세요. Delete 로 해제, Esc 로 취소"
+                                   FontSize="11" Foreground="#888780" Margin="0,8,0,0" TextWrapping="Wrap" />
+                        <TextBlock Text="이 슬롯은 문장 대신 그 키를 그대로 눌러 줍니다. 예: Ctrl + Shift + T"
+                                   FontSize="11" Foreground="#888780" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
                 </Grid>
 
                 <DockPanel>
-                    <CheckBox x:Name="AppendEnterBox" Content="삽입 후 Enter" VerticalAlignment="Center" IsEnabled="False" />
+                    <CheckBox x:Name="AppendEnterBox" Content="삽입 후 Enter" VerticalAlignment="Center" IsEnabled="False" /><!-- 키 조합 모드에서는 의미가 없어 숨긴다 -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                         <TextBlock x:Name="HintText" Text="" FontSize="12" Foreground="#5F5E5A"
                                    VerticalAlignment="Center" Margin="0,0,12,0" />

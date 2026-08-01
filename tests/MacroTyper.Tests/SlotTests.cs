@@ -75,6 +75,84 @@ public class SlotTests
         Assert.Equal(string.Empty, Slot.Empty(0).DisplayName);
     }
 
+    // --- 키 조합을 보내는 슬롯 ---
+
+    private static readonly Hotkey CtrlC = new(HotkeyModifiers.Control, 0x43);
+
+    [Fact]
+    public void Action_ByDefault_IsText()
+    {
+        Assert.Equal(SlotAction.Text, Slot.Empty(0).Action);
+    }
+
+    [Fact]
+    public void IsEmpty_ShortcutSlotWithoutChord_ReturnsTrue()
+    {
+        var slot = new Slot(0, "라벨", string.Empty, false, SlotAction.Shortcut, Hotkey.None);
+
+        Assert.True(slot.IsEmpty);
+    }
+
+    /// <summary>키 조합 슬롯은 문장이 비어 있어도 보낼 것이 있으면 빈 슬롯이 아니다.</summary>
+    [Fact]
+    public void IsEmpty_ShortcutSlotWithChord_ReturnsFalse()
+    {
+        var slot = new Slot(0, "복사", string.Empty, false, SlotAction.Shortcut, CtrlC);
+
+        Assert.False(slot.IsEmpty);
+    }
+
+    /// <summary>반대로 문장 슬롯은 키 조합이 들어 있어도 문장이 비면 빈 슬롯이다.</summary>
+    [Fact]
+    public void IsEmpty_TextSlotWithChordButNoText_ReturnsTrue()
+    {
+        var slot = new Slot(0, "라벨", string.Empty, false, SlotAction.Text, CtrlC);
+
+        Assert.True(slot.IsEmpty);
+    }
+
+    [Fact]
+    public void DisplayName_ShortcutSlotWithLabel_ReturnsLabel()
+    {
+        var slot = new Slot(0, "복사", string.Empty, false, SlotAction.Shortcut, CtrlC);
+
+        Assert.Equal("복사", slot.DisplayName);
+    }
+
+    /// <summary>라벨이 없으면 무엇을 보내는지라도 보여준다.</summary>
+    [Fact]
+    public void DisplayName_ShortcutSlotWithoutLabel_ShowsChord()
+    {
+        var slot = new Slot(0, string.Empty, string.Empty, false, SlotAction.Shortcut, CtrlC);
+
+        Assert.Equal("Ctrl + C", slot.DisplayName);
+    }
+
+    [Fact]
+    public void Preview_ShortcutSlotWithLabel_ShowsChord()
+    {
+        var slot = new Slot(0, "복사", string.Empty, false, SlotAction.Shortcut, CtrlC);
+
+        Assert.Equal("Ctrl + C", slot.Preview);
+    }
+
+    /// <summary>라벨이 없으면 제목 자리에 이미 조합이 나오므로 아래는 비운다.</summary>
+    [Fact]
+    public void Preview_ShortcutSlotWithoutLabel_IsEmpty()
+    {
+        var slot = new Slot(0, string.Empty, string.Empty, false, SlotAction.Shortcut, CtrlC);
+
+        Assert.Equal(string.Empty, slot.Preview);
+    }
+
+    [Fact]
+    public void Preview_EmptyShortcutSlot_IsEmpty()
+    {
+        var slot = new Slot(0, "라벨", string.Empty, false, SlotAction.Shortcut, Hotkey.None);
+
+        Assert.Equal(string.Empty, slot.Preview);
+    }
+
     // --- 관리창에서 라벨 밑에 흐리게 보여줄 미리보기 ---
 
     [Fact]

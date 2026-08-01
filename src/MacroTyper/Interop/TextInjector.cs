@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MacroTyper.Core;
 using MacroTyper.Core.Input;
 
 namespace MacroTyper.Interop;
@@ -28,6 +29,40 @@ public sealed class TextInjector
 {
     // 조각 사이 숨 돌릴 틈. 이게 없으면 대상 앱이 입력을 따라오지 못해 조용히 흘린다.
     private const int ChunkDelayMs = 5;
+
+    /// <summary>슬롯에 등록된 대로 문장을 넣거나 키 조합을 눌러 준다.</summary>
+    public InjectionOutcome Send(Slot slot) => slot.Action == SlotAction.Shortcut
+        ? SendShortcut(slot.Shortcut)
+        : Inject(slot.Text, slot.AppendEnter);
+
+    /// <summary>
+    /// 키 조합을 눌러 준다. 문장과 달리 조각낼 것이 없어 한 번에 보낸다.
+    /// 보조 키를 누른 채로 나눠 보내면 그 사이에 조합이 풀릴 수 있다.
+    /// </summary>
+    public InjectionOutcome SendShortcut(Hotkey chord)
+    {
+        if (!chord.IsSet)
+            return InjectionOutcome.NothingToInject;
+
+        nint target = NativeMethods.GetForegroundWindow();
+
+        if (target == 0)
+            return InjectionOutcome.TargetIsSelf;
+
+        NativeMethods.GetWindowThreadProcessId(target, out uint targetProcessId);
+
+        if (targetProcessId == (uint)Environment.ProcessId)
+            return InjectionOutcome.TargetIsSelf;
+
+        if (IsTargetHigherIntegrity(targetProcessId))
+            return InjectionOutcome.BlockedByElevation;
+
+        // 조합을 보낼 때는 IME 를 건드리지 않는다. 글자를 넣는 게 아니라 키를 누르는 것이라
+        // 조합 상태와 무관하고, 괜히 IME 를 여닫으면 대상 앱만 흔들린다.
+        return Send(InputBuilder.BuildShortcut(chord))
+            ? InjectionOutcome.Success
+            : InjectionOutcome.Incomplete;
+    }
 
     public InjectionOutcome Inject(string text, bool appendEnter)
     {

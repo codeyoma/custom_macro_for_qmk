@@ -54,6 +54,47 @@ public static class InputBuilder
     }
 
     /// <summary>
+    /// 키 조합을 눌러 준다. 예: Ctrl+Shift+T.
+    ///
+    /// 유니코드 경로를 쓰지 않는다. 그건 "이 글자를 넣어라"는 뜻이라 앱이 단축키로 받지 않는다.
+    /// 진짜 키를 눌러야 한다.
+    ///
+    /// 보조 키는 먼저 누르고 누른 역순으로 뗀다. 순서가 어긋나면 조합이 아니라
+    /// 낱개 키를 따로 누른 것이 되어 버린다.
+    /// </summary>
+    public static NativeInput[] BuildShortcut(Hotkey chord)
+    {
+        if (!chord.IsSet)
+            return [];
+
+        var modifiers = new List<ushort>(4);
+
+        if (chord.Modifiers.HasFlag(HotkeyModifiers.Control)) modifiers.Add(VirtualKeys.Control);
+        if (chord.Modifiers.HasFlag(HotkeyModifiers.Alt)) modifiers.Add(VirtualKeys.Alt);
+        if (chord.Modifiers.HasFlag(HotkeyModifiers.Shift)) modifiers.Add(VirtualKeys.Shift);
+        if (chord.Modifiers.HasFlag(HotkeyModifiers.Windows)) modifiers.Add(VirtualKeys.LeftWindows);
+
+        var inputs = new List<NativeInput>((modifiers.Count * 2) + 2);
+
+        foreach (ushort modifier in modifiers)
+            inputs.Add(KeyDown(modifier));
+
+        inputs.Add(KeyDown((ushort)chord.VirtualKey));
+        inputs.Add(KeyUp((ushort)chord.VirtualKey));
+
+        for (int i = modifiers.Count - 1; i >= 0; i--)
+            inputs.Add(KeyUp(modifiers[i]));
+
+        return inputs.ToArray();
+    }
+
+    private static NativeInput KeyDown(ushort virtualKey) =>
+        Keyboard(virtualKey, VirtualKeys.ScanCodeOf(virtualKey), flags: 0);
+
+    private static NativeInput KeyUp(ushort virtualKey) =>
+        Keyboard(virtualKey, VirtualKeys.ScanCodeOf(virtualKey), KeyboardInput.FlagKeyUp);
+
+    /// <summary>
     /// UTF-16 코드 유닛 하나를 그대로 실어 보낸다.
     /// BMP 밖 문자는 상위/하위 서로게이트가 각각 별도 이벤트로 나가고, 대상 앱이 다시 합친다.
     /// </summary>

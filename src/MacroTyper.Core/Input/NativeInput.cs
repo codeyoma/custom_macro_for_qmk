@@ -70,6 +70,11 @@ public static class VirtualKeys
     public const ushort Return = 0x0D;
     public const ushort Tab = 0x09;
 
+    public const ushort Shift = 0x10;
+    public const ushort Control = 0x11;
+    public const ushort Alt = 0x12;
+    public const ushort LeftWindows = 0x5B;
+
     /// <summary>
     /// 가상 키에 대응하는 스캔코드(Set 1). 가상 키만 보내면 조용히 무시하고
     /// 스캔코드를 직접 읽는 앱이 있어서 함께 실어 보낸다.
@@ -79,6 +84,9 @@ public static class VirtualKeys
     {
         Return => 0x1C,
         Tab => 0x0F,
+        Shift => 0x2A,
+        Control => 0x1D,
+        Alt => 0x38,
         _ => 0,
     };
 }

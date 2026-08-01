@@ -130,7 +130,7 @@ public partial class App : Application
         if (slot.IsEmpty)
             return;
 
-        InjectionOutcome outcome = _injector.Inject(slot.Text, slot.AppendEnter);
+        InjectionOutcome outcome = _injector.Send(slot);
 
         if (outcome is InjectionOutcome.Success or InjectionOutcome.NothingToInject)
             return;

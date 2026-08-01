@@ -24,6 +24,14 @@ public partial class ManagerWindow : Window
 
     private bool _capturingHotkey;
 
+    /// <summary>슬롯에 넣을 키 조합을 잡는 중.</summary>
+    private bool _capturingSlotShortcut;
+
+    /// <summary>슬롯을 불러오는 동안. 라디오 변경 이벤트가 편집 중인 값을 건드리지 않게 막는다.</summary>
+    private bool _loadingSlot;
+
+    private Hotkey _editingShortcut = Hotkey.None;
+
     /// <summary>마지막으로 파일에 쓴 메모. 바뀐 게 없으면 저장하지 않는다.</summary>
     private string _savedMemo = string.Empty;
 
@@ -158,9 +166,20 @@ public partial class ManagerWindow : Window
         TextBoxContent.Text = string.Empty;
         AppendEnterBox.IsChecked = false;
 
+        _capturingSlotShortcut = false;
+        _editingShortcut = Hotkey.None;
+        RefreshSlotShortcutButton();
+
+        _loadingSlot = true;
+        TextModeRadio.IsChecked = true;
+        _loadingSlot = false;
+        ShowPaneFor(SlotAction.Text);
+
         LabelBox.IsEnabled = false;
         TextBoxContent.IsEnabled = false;
         AppendEnterBox.IsEnabled = false;
+        TextModeRadio.IsEnabled = false;
+        ShortcutModeRadio.IsEnabled = false;
         SaveButton.IsEnabled = false;
         TestButton.IsEnabled = false;
     }
@@ -268,6 +287,12 @@ public partial class ManagerWindow : Window
     /// </summary>
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
+        if (_capturingSlotShortcut)
+        {
+            CaptureSlotShortcut(e);
+            return;
+        }
+
         if (!_capturingHotkey)
         {
             base.OnPreviewKeyDown(e);
@@ -320,6 +345,48 @@ public partial class ManagerWindow : Window
 
         RefreshHotkeyButton();
         HintText.Text = hotkey.IsSet ? "단축키를 등록했습니다" : "단축키를 해제했습니다";
+    }
+
+    /// <summary>
+    /// 슬롯에 넣을 키 조합을 잡는다.
+    ///
+    /// 전역 단축키와 달리 보조 키를 강요하지 않는다. 저쪽은 시스템 전체에서 그 키를 가로채지만
+    /// 이건 우리가 눌러 줄 조합일 뿐이라 F5 하나만 보내는 것도 말이 된다.
+    /// </summary>
+    private void CaptureSlotShortcut(KeyEventArgs e)
+    {
+        e.Handled = true;
+
+        Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+        if (key == Key.Escape)
+        {
+            _capturingSlotShortcut = false;
+            RefreshSlotShortcutButton();
+            HintText.Text = string.Empty;
+            return;
+        }
+
+        if (key is Key.Delete or Key.Back)
+        {
+            _capturingSlotShortcut = false;
+            _editingShortcut = Hotkey.None;
+            RefreshSlotShortcutButton();
+            HintText.Text = "조합을 지웠습니다";
+            return;
+        }
+
+        // 보조 키만 눌린 상태는 아직 조합이 완성되지 않은 것이다.
+        if (IsModifierKey(key))
+            return;
+
+        _capturingSlotShortcut = false;
+        _editingShortcut = new Hotkey(
+            ToHotkeyModifiers(Keyboard.Modifiers),
+            (uint)KeyInterop.VirtualKeyFromKey(key));
+
+        RefreshSlotShortcutButton();
+        HintText.Text = "저장을 눌러야 적용됩니다";
     }
 
     private static bool IsModifierKey(Key key) => key is
@@ -380,13 +447,69 @@ public partial class ManagerWindow : Window
         TextBoxContent.Text = slot.Text;
         AppendEnterBox.IsChecked = slot.AppendEnter;
 
+        _editingShortcut = slot.Shortcut;
+        RefreshSlotShortcutButton();
+
+        // 라디오 변경 이벤트가 편집 중인 값을 건드리지 않도록 잠근 채로 맞춘다.
+        _loadingSlot = true;
+        TextModeRadio.IsChecked = slot.Action == SlotAction.Text;
+        ShortcutModeRadio.IsChecked = slot.Action == SlotAction.Shortcut;
+        _loadingSlot = false;
+
+        ShowPaneFor(slot.Action);
+
         LabelBox.IsEnabled = true;
         TextBoxContent.IsEnabled = true;
         AppendEnterBox.IsEnabled = true;
+        TextModeRadio.IsEnabled = true;
+        ShortcutModeRadio.IsEnabled = true;
         SaveButton.IsEnabled = true;
         TestButton.IsEnabled = true;
 
         HintText.Text = string.Empty;
+    }
+
+    // --- 문장 / 키 조합 고르기 ---
+
+    private SlotAction SelectedAction =>
+        ShortcutModeRadio.IsChecked == true ? SlotAction.Shortcut : SlotAction.Text;
+
+    private void OnActionModeChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSlot || _selectedIndex < 0)
+            return;
+
+        ShowPaneFor(SelectedAction);
+    }
+
+    private void ShowPaneFor(SlotAction action)
+    {
+        bool shortcut = action == SlotAction.Shortcut;
+
+        ShortcutPane.Visibility = shortcut ? Visibility.Visible : Visibility.Collapsed;
+        TextPane.Visibility = shortcut ? Visibility.Collapsed : Visibility.Visible;
+
+        // 키 조합에는 "삽입 후 Enter" 가 의미 없다.
+        AppendEnterBox.Visibility = shortcut ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void RefreshSlotShortcutButton()
+    {
+        SlotShortcutButton.Content = _editingShortcut.IsSet ? _editingShortcut.Describe() : "조합 없음";
+    }
+
+    private void OnSlotShortcutClicked(object sender, RoutedEventArgs e)
+    {
+        if (_capturingSlotShortcut)
+        {
+            _capturingSlotShortcut = false;
+            RefreshSlotShortcutButton();
+            return;
+        }
+
+        _capturingSlotShortcut = true;
+        SlotShortcutButton.Content = "키를 누르세요";
+        HintText.Text = "보낼 조합을 누르세요. Delete 로 해제, Esc 로 취소";
     }
 
     private void OnSave(object sender, RoutedEventArgs e)
@@ -398,7 +521,9 @@ public partial class ManagerWindow : Window
             _selectedIndex,
             LabelBox.Text.Trim(),
             TextBoxContent.Text,
-            AppendEnterBox.IsChecked == true));
+            AppendEnterBox.IsChecked == true,
+            SelectedAction,
+            _editingShortcut));
 
         try
         {
@@ -453,9 +578,10 @@ public partial class ManagerWindow : Window
 
         StopCountdown();
 
-        InjectionOutcome outcome = _injector.Inject(
-            TextBoxContent.Text,
-            AppendEnterBox.IsChecked == true);
+        // 저장 전이라도 지금 편집 중인 내용으로 해본다. 저장하고 나서야 확인할 수 있으면 불편하다.
+        InjectionOutcome outcome = SelectedAction == SlotAction.Shortcut
+            ? _injector.SendShortcut(_editingShortcut)
+            : _injector.Inject(TextBoxContent.Text, AppendEnterBox.IsChecked == true);
 
         HintText.Text = Describe(outcome);
     }

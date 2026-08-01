@@ -187,7 +187,9 @@ public sealed class SlotStore
             _rotation,
             _cheatHotkey,
             _memo,
-            _slots.Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter)).ToArray());
+            _slots
+                .Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter, s.Action, s.Shortcut))
+                .ToArray());
 
         string temp = path + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(payload, JsonOptions));
@@ -216,7 +218,13 @@ public sealed class SlotStore
         for (int i = 0; i < count; i++)
         {
             SlotEntry entry = entries[i];
-            result[i] = new Slot(i, entry.Label ?? string.Empty, entry.Text ?? string.Empty, entry.AppendEnter);
+            result[i] = new Slot(
+                i,
+                entry.Label ?? string.Empty,
+                entry.Text ?? string.Empty,
+                entry.AppendEnter,
+                Enum.IsDefined(entry.Action) ? entry.Action : SlotAction.Text,
+                entry.Shortcut);
         }
 
         return result;
@@ -251,5 +259,7 @@ public sealed class SlotStore
     internal sealed record SlotFile(
         int Version, GridRotation Rotation, Hotkey CheatHotkey, string? Memo, SlotEntry[] Slots);
 
-    internal sealed record SlotEntry(int Index, string? Label, string? Text, bool AppendEnter);
+    // action 과 shortcut 이 없는 예전 파일은 문장 슬롯으로 읽힌다.
+    internal sealed record SlotEntry(
+        int Index, string? Label, string? Text, bool AppendEnter, SlotAction Action, Hotkey Shortcut);
 }
