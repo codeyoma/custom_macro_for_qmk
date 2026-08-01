@@ -41,7 +41,7 @@ public partial class App : Application
         _injector = new TextInjector();
 
         _overlay = new OverlayWindow();
-        _overlay.UpdateSlots(_store.Slots, _store.Rotation);
+        RefreshOverlay();
 
         // 치트시트를 보다가 마우스로 바로 넣거나 고치러 갈 수 있게 한다.
         // 오버레이는 포커스를 받지 않으므로 칸을 눌러도 글을 쓰던 창이 포그라운드로 남는다.
@@ -212,12 +212,19 @@ public partial class App : Application
         return true;
     }
 
+    /// <summary>치트시트에 보이는 것들을 한꺼번에 다시 그린다.</summary>
+    private void RefreshOverlay()
+    {
+        _overlay.UpdateSlots(_store.Slots, _store.Rotation);
+        _overlay.UpdateMemo(_store.Memo);
+    }
+
     private void ShowOverlay()
     {
         // 오버레이는 포커스를 받지 않으므로, 지금 포그라운드인 창이 곧 사용자가 작업 중인 창이다.
         nint foreground = NativeMethods.GetForegroundWindow();
 
-        _overlay.UpdateSlots(_store.Slots, _store.Rotation);
+        RefreshOverlay();
         _overlay.ShowOverlay(foreground);
     }
 
@@ -288,7 +295,7 @@ public partial class App : Application
             _manager = new ManagerWindow(
                 _store,
                 _injector,
-                () => _overlay.UpdateSlots(_store.Slots, _store.Rotation),
+                RefreshOverlay,
                 ApplyHotkey);
             _manager.SetConnectionState(_listener.IsConnected);
         }

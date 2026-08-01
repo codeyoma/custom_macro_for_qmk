@@ -23,6 +23,7 @@ public sealed class SlotStore
     private Slot[] _slots = CreateEmptySet();
     private GridRotation _rotation = GridRotation.None;
     private Hotkey _cheatHotkey = Hotkey.None;
+    private string _memo = string.Empty;
 
     public SlotStore(string filePath) => _filePath = filePath;
 
@@ -48,6 +49,18 @@ public sealed class SlotStore
     {
         get => _cheatHotkey;
         set => _cheatHotkey = value.IsSet && value.HasModifier ? value : Hotkey.None;
+    }
+
+    /// <summary>
+    /// 관리창과 치트시트 아래에 늘 떠 있는 메모.
+    /// 문장으로 등록하기엔 애매하지만 눈앞에 두고 싶은 것들을 적는 자리다.
+    ///
+    /// 비었을 때 <c>null</c>이 아니라 빈 문자열이다. 화면 쪽에서 null 검사를 하지 않아도 되게 한다.
+    /// </summary>
+    public string Memo
+    {
+        get => _memo;
+        set => _memo = value ?? string.Empty;
     }
 
     /// <summary>%APPDATA%\MacroTyper\slots.json 을 사용하는 기본 저장소.</summary>
@@ -102,6 +115,7 @@ public sealed class SlotStore
         // 속성 setter 를 거쳐야 파일에 적힌 엉뚱한 값이 걸러진다.
         Rotation = parsed?.Rotation ?? GridRotation.None;
         CheatHotkey = parsed?.CheatHotkey ?? Hotkey.None;
+        Memo = parsed?.Memo ?? string.Empty;
     }
 
     /// <summary>임시 파일에 쓴 뒤 교체한다. 저장 중 중단되어도 기존 파일이 남는다.</summary>
@@ -115,6 +129,7 @@ public sealed class SlotStore
             FormatVersion,
             _rotation,
             _cheatHotkey,
+            _memo,
             _slots.Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter)).ToArray());
 
         string temp = _filePath + ".tmp";
@@ -176,7 +191,8 @@ public sealed class SlotStore
     }
 
     // 예전 파일도 그대로 읽힌다. 빠진 값은 기본값이 된다.
-    internal sealed record SlotFile(int Version, GridRotation Rotation, Hotkey CheatHotkey, SlotEntry[] Slots);
+    internal sealed record SlotFile(
+        int Version, GridRotation Rotation, Hotkey CheatHotkey, string? Memo, SlotEntry[] Slots);
 
     internal sealed record SlotEntry(int Index, string? Label, string? Text, bool AppendEnter);
 }

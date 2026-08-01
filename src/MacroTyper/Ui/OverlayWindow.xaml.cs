@@ -55,6 +55,15 @@ public partial class OverlayWindow : Window
     /// 격자를 다시 그린다. 매크로패드를 돌려 놓았으면 화면도 같은 방향으로 눕는다.
     /// 슬롯 번호는 그대로고 늘어놓는 순서만 바뀐다.
     /// </summary>
+    /// <summary>관리창에서 적은 메모를 아래에 깐다. 비어 있으면 자리째 접는다.</summary>
+    public void UpdateMemo(string memo)
+    {
+        MemoText.Text = memo;
+        MemoPanel.Visibility = string.IsNullOrWhiteSpace(memo) ? Visibility.Collapsed : Visibility.Visible;
+
+        UpdateLayout();
+    }
+
     public void UpdateSlots(IReadOnlyList<Slot> slots, GridRotation rotation)
     {
         // 방향이 바뀔 때만 판을 갈아 끼운다.

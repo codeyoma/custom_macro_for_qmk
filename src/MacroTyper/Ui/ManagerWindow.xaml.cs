@@ -22,6 +22,9 @@ public partial class ManagerWindow : Window
 
     private bool _capturingHotkey;
 
+    /// <summary>마지막으로 파일에 쓴 메모. 바뀐 게 없으면 저장하지 않는다.</summary>
+    private string _savedMemo = string.Empty;
+
     private int _selectedIndex = -1;
     private DispatcherTimer? _countdown;
     private int _secondsLeft;
@@ -42,6 +45,38 @@ public partial class ManagerWindow : Window
 
         RefreshGrid();
         RefreshHotkeyButton();
+
+        MemoBox.Text = _store.Memo;
+    }
+
+    // --- 늘 떠 있는 메모 ---
+
+    /// <summary>
+    /// 치트시트에는 곧바로 반영하고, 파일 저장은 입력이 끝난 뒤로 미룬다.
+    /// 한 글자마다 파일을 쓰면 디스크를 계속 두드리게 된다.
+    /// </summary>
+    private void OnMemoChanged(object sender, TextChangedEventArgs e)
+    {
+        _store.Memo = MemoBox.Text;
+        _slotsChanged();
+    }
+
+    private void OnMemoCommitted(object sender, RoutedEventArgs e) => SaveMemo();
+
+    private void SaveMemo()
+    {
+        if (_store.Memo == _savedMemo)
+            return;
+
+        try
+        {
+            _store.Save();
+            _savedMemo = _store.Memo;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            HintText.Text = "메모를 저장하지 못했습니다";
+        }
     }
 
     /// <summary>
@@ -51,6 +86,10 @@ public partial class ManagerWindow : Window
     {
         e.Cancel = true;
         StopCountdown();
+
+        // 메모를 적다가 창을 닫아도 잃지 않게 한다.
+        SaveMemo();
+
         Hide();
     }
 

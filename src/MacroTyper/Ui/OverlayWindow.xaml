@@ -52,6 +52,21 @@
             </TextBlock>
         </Border>
 
+        <!-- 관리창에서 적은 메모. 비어 있으면 접는다. -->
+        <Border x:Name="MemoPanel" DockPanel.Dock="Bottom"
+                Margin="3,10,3,3" Padding="10,7"
+                CornerRadius="6"
+                Background="#12FFFFFF"
+                Visibility="Collapsed">
+            <TextBlock x:Name="MemoText"
+                       FontSize="11"
+                       LineHeight="15"
+                       TextWrapping="Wrap"
+                       TextTrimming="CharacterEllipsis"
+                       MaxHeight="60"
+                       Foreground="#B4FFFFFF" />
+        </Border>
+
         <ItemsControl x:Name="Cells">
             <!-- 행/열은 매크로패드를 돌려 놓은 방향에 따라 코드에서 바꾼다. -->
             <ItemsControl.ItemsPanel>

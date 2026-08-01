@@ -254,6 +254,65 @@ public class SlotStoreTests : IDisposable
         Assert.Equal(GridRotation.None, store.Rotation);
     }
 
+    // --- 화면 아래에 늘 떠 있는 메모 ---
+
+    [Fact]
+    public void Memo_ByDefault_IsEmpty()
+    {
+        Assert.Equal(string.Empty, LoadedStore().Memo);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsMemo()
+    {
+        var store = LoadedStore();
+        store.Memo = "회신 기한 금요일까지";
+        store.Save();
+
+        Assert.Equal("회신 기한 금요일까지", LoadedStore().Memo);
+    }
+
+    [Fact]
+    public void SaveThenLoad_PreservesMemoLineBreaks()
+    {
+        var store = LoadedStore();
+        store.Memo = "첫 줄\n둘째 줄\r\n셋째 줄";
+        store.Save();
+
+        Assert.Equal("첫 줄\n둘째 줄\r\n셋째 줄", LoadedStore().Memo);
+    }
+
+    [Fact]
+    public void Load_WithoutMemoField_FallsBackToEmpty()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "slots": [] }
+            """);
+
+        Assert.Equal(string.Empty, LoadedStore().Memo);
+    }
+
+    /// <summary>메모를 지우면 빈 문자열이지 null 이 아니다. 화면 쪽에서 null 검사를 하지 않아도 되게 한다.</summary>
+    [Fact]
+    public void Memo_SetToNull_BecomesEmpty()
+    {
+        var store = LoadedStore();
+
+        store.Memo = null!;
+
+        Assert.Equal(string.Empty, store.Memo);
+    }
+
+    [Fact]
+    public void Load_WithNullMemoInFile_FallsBackToEmpty()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "slots": [], "memo": null }
+            """);
+
+        Assert.Equal(string.Empty, LoadedStore().Memo);
+    }
+
     // --- 치트시트를 여는 전역 단축키 ---
 
     [Fact]
