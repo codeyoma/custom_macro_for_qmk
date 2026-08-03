@@ -99,11 +99,7 @@ public partial class App : Application
         _singleInstance.Dispose();
         _singleInstance = null;
 
-        MessageBox.Show(
-            "이미 실행 중입니다. 작업 표시줄 트레이를 확인하세요.",
-            "문장 매크로",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        TrayDialog.Show("이미 실행 중입니다. 작업 표시줄 트레이를 확인하세요.", "문장 매크로");
 
         return false;
     }
@@ -355,7 +351,27 @@ public partial class App : Application
         if (_manager.WindowState == WindowState.Minimized)
             _manager.WindowState = WindowState.Normal;
 
-        _manager.Activate();
+        BringToFront(_manager);
+    }
+
+    /// <summary>
+    /// 창을 확실히 앞으로 끌어온다.
+    ///
+    /// <see cref="Window.Activate"/>만으로는 모자란다. 트레이 앱은 포그라운드가 아니고,
+    /// Windows 는 포그라운드가 아닌 프로세스가 포커스를 가져가는 것을 막는다.
+    /// 그러면 창은 열리되 쓰던 창 뒤에 서서, 아무 일도 안 일어난 것처럼 보인다.
+    ///
+    /// Topmost 를 켰다 끄면 포커스와 무관하게 z-order 만 맨 앞으로 옮길 수 있다.
+    /// 계속 켜 두지는 않는다. 관리창이 다른 창 위에 영원히 붙어 있을 이유는 없다.
+    /// </summary>
+    private static void BringToFront(Window window)
+    {
+        window.Activate();
+
+        window.Topmost = true;
+        window.Topmost = false;
+
+        window.Focus();
     }
 
     // --- 새 버전 ---
@@ -410,11 +426,7 @@ public partial class App : Application
 
         if (offer is null)
         {
-            MessageBox.Show(
-                $"최신 버전입니다. (현재 {Describe(AppIdentity.Current)})",
-                "문장 매크로",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            TrayDialog.Show($"최신 버전입니다. (현재 {Describe(AppIdentity.Current)})", "문장 매크로");
             return;
         }
 
@@ -433,7 +445,7 @@ public partial class App : Application
         if (_updating || _updates is null)
             return;
 
-        MessageBoxResult answer = MessageBox.Show(
+        MessageBoxResult answer = TrayDialog.Show(
             $"""
             새 버전이 나왔습니다.
 
@@ -495,7 +507,7 @@ public partial class App : Application
     /// </summary>
     private void OfferManualDownload(UpdateOffer offer, UpdateResult result)
     {
-        MessageBoxResult answer = MessageBox.Show(
+        MessageBoxResult answer = TrayDialog.Show(
             $"""
             업데이트하지 못했습니다.
 
@@ -546,11 +558,7 @@ public partial class App : Application
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            MessageBox.Show(
-                "교체는 끝났습니다. 프로그램을 직접 다시 실행해 주세요.",
-                "문장 매크로",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            TrayDialog.Show("교체는 끝났습니다. 프로그램을 직접 다시 실행해 주세요.", "문장 매크로");
         }
 
         Shutdown();

@@ -13,7 +13,7 @@
       릴리즈 태그와 반드시 같아야 한다. 이 값이 낮으면 이미 최신인데도 계속 업데이트를 권하고,
       높으면 새 버전이 나와도 알아채지 못한다.
     -->
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
 
     <!-- PerMonitorV2 DPI 인식과 asInvoker 권한을 선언한다. 오버레이 위치 계산에 필수. -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
