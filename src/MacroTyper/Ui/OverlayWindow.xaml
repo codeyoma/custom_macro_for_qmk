@@ -84,9 +84,20 @@
                             Background="#17FFFFFF"
                             Cursor="Hand"
                             MouseLeftButtonUp="OnCellClicked">
-                        <Grid>
                             <StackPanel Margin="8,6">
+                                <!--
+                                    표시는 번호와 같은 줄에 오른쪽부터 쌓는다.
+                                    칸 위에 겹쳐 놓으면 표시가 늘어날 때마다 서로 부딪힌다.
+                                -->
                                 <DockPanel>
+                                    <!-- 삽입 후 Enter 가 붙는 슬롯. 어두운 판이라 밝은 점을 쓴다. -->
+                                    <Ellipse x:Name="EnterDot" DockPanel.Dock="Right"
+                                             Width="6" Height="6"
+                                             Fill="#D8FFFFFF"
+                                             VerticalAlignment="Center"
+                                             Margin="5,0,0,0"
+                                             Visibility="Collapsed" />
+
                                     <!-- 키를 눌러 주는 칸 표시. 글이 아니라 키가 나간다는 뜻이다. -->
                                     <TextBlock x:Name="ShortcutMark" DockPanel.Dock="Right"
                                                Text="&#x2328;" FontSize="12"
@@ -116,16 +127,6 @@
                                            MaxHeight="26"
                                            Foreground="#7AFFFFFF" />
                             </StackPanel>
-
-                            <!-- 삽입 후 Enter 가 붙는 슬롯. 어두운 판이라 밝은 점을 쓴다. -->
-                            <Ellipse x:Name="EnterDot"
-                                     Width="6" Height="6"
-                                     Fill="#D8FFFFFF"
-                                     HorizontalAlignment="Right"
-                                     VerticalAlignment="Bottom"
-                                     Margin="0,0,6,6"
-                                     Visibility="Collapsed" />
-                        </Grid>
                     </Border>
 
                     <DataTemplate.Triggers>

@@ -152,9 +152,21 @@
                         <Button x:Name="SlotButton" Margin="4" Height="96" Click="OnSlotClicked"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                                 Background="White" BorderBrush="#E4E4DE" BorderThickness="1">
-                            <Grid>
                                 <StackPanel Margin="4">
+                                    <!--
+                                        표시는 번호와 같은 줄에 오른쪽부터 쌓는다.
+                                        칸 위에 겹쳐 놓으면 표시가 늘어날 때마다 서로 부딪힌다.
+                                    -->
                                     <DockPanel>
+                                        <!-- 삽입 후 Enter 가 켜진 슬롯 표시. 꺼져 있으면 숨긴다. -->
+                                        <Ellipse x:Name="EnterDot" DockPanel.Dock="Right"
+                                                 Width="7" Height="7"
+                                                 Fill="#1A1A18"
+                                                 VerticalAlignment="Center"
+                                                 Margin="5,0,0,0"
+                                                 Visibility="Collapsed"
+                                                 ToolTip="삽입 후 Enter" />
+
                                         <!-- 키를 눌러 주는 칸 표시. 글이 아니라 키가 나간다는 뜻이다. -->
                                         <TextBlock x:Name="SlotShortcutMark" DockPanel.Dock="Right"
                                                    Text="&#x2328;" FontSize="12" Foreground="#5F5E5A"
@@ -171,17 +183,6 @@
                                                Margin="0,3,0,0" LineHeight="13"
                                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="39" />
                                 </StackPanel>
-
-                                <!-- 삽입 후 Enter 가 켜진 슬롯 표시. 꺼져 있으면 숨긴다. -->
-                                <Ellipse x:Name="EnterDot"
-                                         Width="7" Height="7"
-                                         Fill="#1A1A18"
-                                         HorizontalAlignment="Right"
-                                         VerticalAlignment="Bottom"
-                                         Margin="0,0,5,5"
-                                         Visibility="Collapsed"
-                                         ToolTip="삽입 후 Enter" />
-                            </Grid>
                         </Button>
 
                         <DataTemplate.Triggers>

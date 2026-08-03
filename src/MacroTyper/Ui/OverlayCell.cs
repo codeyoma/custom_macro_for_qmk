@@ -9,7 +9,7 @@ namespace MacroTyper.Ui;
 /// 치트시트 키 자리와 그 위의 빈틈도 같이 그려야 실물과 모양이 맞는다.
 /// </summary>
 /// <param name="Preview">라벨 밑에 흐리게 깔 문장.</param>
-/// <param name="AppendEnter">오른쪽 아래 점으로 표시한다.</param>
+/// <param name="AppendEnter">번호 옆 점으로 표시한다.</param>
 /// <param name="IsShortcut">
 /// 글을 넣는 대신 키를 눌러 주는 칸. 번호 옆에 기호로 표시한다.
 /// 누르기 전에 "이건 글이 아니라 키가 나간다"를 알 수 있어야 한다.
@@ -36,7 +36,10 @@ public sealed record OverlayCell(
         slot.DisplayName,
         slot.Preview,
         slot.IsEmpty,
-        slot.AppendEnter,
+        // 키 조합 칸에서는 Enter 가 나가지 않는다. TextInjector 가 그 값을 보지 않는다.
+        // 문장 모드에서 켜 둔 채 단축키로 바꾸면 값은 남으므로 여기서 걸러야 한다.
+        // 두 표시가 나란히 붙어 있어서, 남겨 두면 없는 동작을 있다고 말하는 셈이 된다.
+        slot.AppendEnter && slot.Action != SlotAction.Shortcut,
         // 아직 조합을 안 넣은 칸에까지 기호를 달면 설정된 것처럼 보인다.
         slot.Action == SlotAction.Shortcut && !slot.IsEmpty);
 
