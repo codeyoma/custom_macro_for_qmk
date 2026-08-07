@@ -57,8 +57,15 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left" Text="메모" FontSize="11" Foreground="#5F5E5A"
                            VerticalAlignment="Top" Margin="0,7,10,0" />
+                <!--
+                    높이를 고정하지 않는다. 적은 만큼 상자가 자란다.
+                    MaxLines 는 글자 수가 아니라 상자가 자라는 한계다. 그보다 길어지면
+                    스크롤로 넘어가므로 적을 수 있는 양에는 제한이 없다.
+                    무한정 자라게 두면 아래에서 위로 밀고 올라와 슬롯 격자를 덮는다.
+                -->
                 <TextBox x:Name="MemoBox"
-                         Height="52"
+                         MinLines="3"
+                         MaxLines="12"
                          AcceptsReturn="True"
                          TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto"

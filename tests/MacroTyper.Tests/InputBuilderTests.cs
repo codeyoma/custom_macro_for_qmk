@@ -11,10 +11,47 @@ public class InputBuilderTests
     private static bool IsUnicode(NativeInput input) =>
         (input.Data.Keyboard.Flags & KeyboardInput.FlagUnicode) != 0;
 
+    /// <summary>누름 이벤트에 실린 코드 유닛만 이어 붙인다. 실제로 나가는 글자다.</summary>
+    private static string Emitted(string text) => new(
+        InputBuilder.Build(text)
+            .Where(i => !IsKeyUp(i) && IsUnicode(i))
+            .Select(i => (char)i.Data.Keyboard.Scan)
+            .ToArray());
+
     [Fact]
     public void Build_EmptyText_ProducesNoInput()
     {
         Assert.Empty(InputBuilder.Build(string.Empty));
+    }
+
+    /// <summary>
+    /// 등록한 그대로 나가야 한다. 한 글자도 늘거나 줄거나 바뀌지 않는다.
+    ///
+    /// 삽입된 글에 공백이 하나 더 생기고 마침표가 전각으로 커진다는 보고가 있었다.
+    /// 그런 변형이 여기서 나지 않는다는 것을 못박아 둔다. 이 테스트가 통과하는 한
+    /// 원인은 이 아래(IME 또는 대상 앱)이거나, 저장된 문장 자체가 이미 그렇다.
+    /// </summary>
+    [Theory]
+    [InlineData("안녕하세요. 확인 부탁드립니다.")]
+    [InlineData("a b  c")]
+    [InlineData(". , ! ? : ; ' \" ( ) - _ / \\")]
+    [InlineData("  앞뒤 공백  ")]
+    public void Build_PassesTextThroughUnchanged(string text)
+    {
+        Assert.Equal(text, Emitted(text));
+    }
+
+    /// <summary>
+    /// 전각과 반각은 서로 다른 문자다. 우리가 바꾸지 않으므로 넣은 쪽이 그대로 나온다.
+    /// 전각이 나온다면 저장된 문장이 이미 전각이었거나 대상 쪽에서 바뀐 것이다.
+    /// </summary>
+    [Fact]
+    public void Build_DoesNotConvertBetweenHalfAndFullWidth()
+    {
+        Assert.Equal("a.b", Emitted("a.b"));
+        Assert.Equal("ａ．ｂ", Emitted("ａ．ｂ"));
+        Assert.Equal("한 칸", Emitted("한 칸"));
+        Assert.Equal("한　칸", Emitted("한　칸"));
     }
 
     [Fact]

@@ -58,12 +58,18 @@
                 CornerRadius="6"
                 Background="#12FFFFFF"
                 Visibility="Collapsed">
+            <!--
+                치트시트는 스크롤할 수 없다. 포커스를 받지 않아서 휠도 키보드도 닿지 않는다.
+                그래서 여기만은 높이에 상한이 있어야 한다. 없으면 메모가 길어질수록
+                창이 자라 화면 밖으로 나가고, 그때는 아무것도 읽을 수 없게 된다.
+                넘치는 부분은 말줄임표로 알린다. 전문은 관리창에 있다.
+            -->
             <TextBlock x:Name="MemoText"
                        FontSize="11"
                        LineHeight="15"
                        TextWrapping="Wrap"
                        TextTrimming="CharacterEllipsis"
-                       MaxHeight="60"
+                       MaxHeight="225"
                        Foreground="#B4FFFFFF" />
         </Border>
 
