@@ -61,6 +61,9 @@ public partial class OverlayWindow : Window
         MemoText.Text = memo;
         MemoPanel.Visibility = string.IsNullOrWhiteSpace(memo) ? Visibility.Collapsed : Visibility.Visible;
 
+        // 지난번에 내려 둔 자리에서 다시 열면 메모 중간이 보인다. 늘 처음부터 보여준다.
+        MemoScroll.ScrollToTop();
+
         UpdateLayout();
     }
 
