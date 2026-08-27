@@ -75,7 +75,7 @@ public sealed record Slot(
             // 빈 항목을 버리면 연속된 줄바꿈이 공백 하나로 합쳐진다.
             return string.Join(
                     ' ',
-                    Text.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries))
+                    Text.Split(new[] { '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries))
                 .Trim();
         }
     }

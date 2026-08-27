@@ -31,11 +31,7 @@ public partial class App : Application
     /// <summary>단축키로 열어 둔 상태. 레이어 키를 떼도 닫히지 않는다.</summary>
     private bool _overlayPinned;
 
-    /// <summary>
-    /// 지금 떠 있는 풍선이 업데이트 알림인지.
-    /// 풍선 클릭은 어떤 풍선이든 같은 이벤트로 오므로, 삽입 실패 알림을 눌렀다고
-    /// 업데이트가 시작되어서는 안 된다.
-    /// </summary>
+    /// <summary>지금 떠 있는 풍선을 눌렀을 때 업데이트를 시작해도 되는지.</summary>
     private bool _balloonOffersUpdate;
 
     /// <summary>교체가 진행 중. 두 번 누르면 같은 파일을 두 번 받는다.</summary>
@@ -145,29 +141,7 @@ public partial class App : Application
         if (slot.IsEmpty)
             return;
 
-        InjectionOutcome outcome = _injector.Send(slot);
-
-        if (outcome is InjectionOutcome.Success or InjectionOutcome.NothingToInject)
-            return;
-
-        Dispatcher.BeginInvoke(() => NotifyFailure(slot, outcome));
-    }
-
-    private void NotifyFailure(Slot slot, InjectionOutcome outcome)
-    {
-        string message = outcome switch
-        {
-            InjectionOutcome.BlockedByElevation =>
-                "대상 창이 관리자 권한이라 입력이 막혔습니다. 트레이 메뉴에서 관리자 권한으로 재시작하세요.",
-            InjectionOutcome.TargetIsSelf =>
-                "글을 넣을 창을 먼저 클릭하세요.",
-            InjectionOutcome.Incomplete =>
-                "문장이 일부만 들어갔습니다. 대상 앱이 입력을 따라오지 못했을 수 있습니다.",
-            _ => "문장을 넣지 못했습니다.",
-        };
-
-        _balloonOffersUpdate = false;
-        _tray?.ShowBalloonTip($"{slot.Index + 1}번 삽입 실패", message, BalloonIcon.Warning);
+        _injector.Send(slot);
     }
 
     /// <summary>

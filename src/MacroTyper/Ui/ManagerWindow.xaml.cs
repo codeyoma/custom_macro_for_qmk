@@ -359,31 +359,33 @@ public partial class ManagerWindow : Window
 
         Key key = e.Key == Key.System ? e.SystemKey : e.Key;
 
-        if (key == Key.Escape)
+        // 보조 키만 눌린 상태는 아직 조합이 완성되지 않은 것이다.
+        if (IsModifierKey(key))
+            return;
+
+        var shortcut = new Hotkey(
+            ToHotkeyModifiers(Keyboard.Modifiers),
+            (uint)KeyInterop.VirtualKeyFromKey(key));
+        SlotShortcutCapture capture = SlotShortcutCapture.Decide(shortcut);
+
+        _capturingSlotShortcut = false;
+
+        if (capture.Action == SlotShortcutCaptureAction.Cancel)
         {
-            _capturingSlotShortcut = false;
             RefreshSlotShortcutButton();
             HintText.Text = string.Empty;
             return;
         }
 
-        if (key is Key.Delete or Key.Back)
+        if (capture.Action == SlotShortcutCaptureAction.Clear)
         {
-            _capturingSlotShortcut = false;
             _editingShortcut = Hotkey.None;
             RefreshSlotShortcutButton();
             HintText.Text = "조합을 지웠습니다";
             return;
         }
 
-        // 보조 키만 눌린 상태는 아직 조합이 완성되지 않은 것이다.
-        if (IsModifierKey(key))
-            return;
-
-        _capturingSlotShortcut = false;
-        _editingShortcut = new Hotkey(
-            ToHotkeyModifiers(Keyboard.Modifiers),
-            (uint)KeyInterop.VirtualKeyFromKey(key));
+        _editingShortcut = capture.Shortcut;
 
         RefreshSlotShortcutButton();
         HintText.Text = "저장을 눌러야 적용됩니다";
