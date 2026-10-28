@@ -18,6 +18,9 @@ namespace MacroTyper;
 /// </summary>
 public partial class App : Application
 {
+    /// <summary>사람에게 보이는 이름. 트레이, 대화 상자, 창 제목에 같은 이름을 쓴다.</summary>
+    public const string AppName = "은선 매크로";
+
     private Mutex? _singleInstance;
     private SlotStore _store = null!;
     private TextInjector _injector = null!;
@@ -61,6 +64,11 @@ public partial class App : Application
         _overlay.SlotActivated += OnSlotActivated;
         _overlay.EditRequested += (_, _) => OpenManager();
         _overlay.HotkeyPressed += (_, _) => ToggleOverlay();
+        _overlay.CloseRequested += (_, _) =>
+        {
+            _overlayPinned = false;
+            _overlay.HideOverlay();
+        };
 
         _overlay.TryRegisterHotkey(_store.CheatHotkey);
 
@@ -95,7 +103,7 @@ public partial class App : Application
         _singleInstance.Dispose();
         _singleInstance = null;
 
-        TrayDialog.Show("이미 실행 중입니다. 작업 표시줄 트레이를 확인하세요.", "문장 매크로");
+        TrayDialog.Show("이미 실행 중입니다. 작업 표시줄 트레이를 확인하세요.", AppName);
 
         return false;
     }
@@ -215,7 +223,7 @@ public partial class App : Application
         nint foreground = NativeMethods.GetForegroundWindow();
 
         RefreshOverlay();
-        _overlay.ShowOverlay(foreground);
+        _overlay.ShowOverlay(foreground, held: !_overlayPinned);
     }
 
     private void OnConnectionChanged(object? sender, bool connected)
@@ -224,8 +232,8 @@ public partial class App : Application
         {
             if (_tray is not null)
             {
-                _tray.IconSource = (ImageSource)FindResource(connected ? "TrayConnected" : "TrayDisconnected");
-                _tray.ToolTipText = connected ? "문장 매크로 — 연결됨" : "문장 매크로 — 매크로패드 없음";
+                _tray.IconSource = (ImageSource)FindResource(connected ? "AppIcon" : "AppIconMuted");
+                _tray.ToolTipText = connected ? $"{AppName} — 연결됨" : $"{AppName} — 매크로패드 없음";
             }
 
             _manager?.SetConnectionState(connected);
@@ -238,8 +246,8 @@ public partial class App : Application
     {
         _tray = new TaskbarIcon
         {
-            IconSource = (ImageSource)FindResource("TrayDisconnected"),
-            ToolTipText = "문장 매크로 — 매크로패드 없음",
+            IconSource = (ImageSource)FindResource("AppIconMuted"),
+            ToolTipText = $"{AppName} — 매크로패드 없음",
             ContextMenu = BuildTrayMenu(),
             MenuActivation = PopupActivationMode.RightClick,
         };
@@ -256,10 +264,21 @@ public partial class App : Application
 
     private ContextMenu BuildTrayMenu()
     {
-        var menu = new ContextMenu();
+        var menu = new ContextMenu { Style = (Style)FindResource("Menu") };
 
-        // 새 버전을 찾기 전에는 보이지 않는다.
-        _updateMenuItem = new MenuItem { Header = "새 버전 받기", Visibility = Visibility.Collapsed, FontWeight = FontWeights.Bold };
+        MenuItem Item(string header, string? icon, string style = "MenuItem") => new()
+        {
+            Header = header,
+            Style = (Style)FindResource(style),
+            Tag = icon is null ? null : FindResource(icon),
+        };
+
+        Separator Line() => new() { Style = (Style)FindResource("MenuSeparator") };
+
+        // 새 버전을 찾기 전에는 보이지 않는다. 찾으면 맨 위에 파란 띠로 뜬다.
+        _updateMenuItem = Item("새 버전 받기", null, "UpdateMenuItem");
+        _updateMenuItem.Tag = "업데이트를 사용할 수 있어요";
+        _updateMenuItem.Visibility = Visibility.Collapsed;
         _updateMenuItem.Click += (_, _) =>
         {
             if (_updates?.Pending is { } offer)
@@ -267,13 +286,16 @@ public partial class App : Application
         };
         menu.Items.Add(_updateMenuItem);
 
-        var open = new MenuItem { Header = "문장 관리" };
+        MenuItem open = Item("매크로 관리", "Icon.LayoutGrid");
         open.Click += (_, _) => OpenManager();
         menu.Items.Add(open);
 
-        menu.Items.Add(new Separator());
+        menu.Items.Add(Line());
 
-        var autoStart = new MenuItem { Header = "로그온할 때 자동 실행", IsCheckable = true, IsChecked = AutoStart.IsEnabled };
+        // 켜고 끄는 항목은 아이콘 자리에 체크 표시가 온다.
+        MenuItem autoStart = Item("로그온할 때 자동 실행", null);
+        autoStart.IsCheckable = true;
+        autoStart.IsChecked = AutoStart.IsEnabled;
         autoStart.Click += (_, _) =>
         {
             AutoStart.Toggle();
@@ -281,26 +303,23 @@ public partial class App : Application
         };
         menu.Items.Add(autoStart);
 
-        var autoCheck = new MenuItem
-        {
-            Header = "새 버전 자동 확인",
-            IsCheckable = true,
-            IsChecked = _store.CheckForUpdates,
-        };
+        MenuItem autoCheck = Item("새 버전 자동 확인", null);
+        autoCheck.IsCheckable = true;
+        autoCheck.IsChecked = _store.CheckForUpdates;
         autoCheck.Click += (_, _) => SetUpdateChecking(autoCheck.IsChecked);
         menu.Items.Add(autoCheck);
 
-        var checkNow = new MenuItem { Header = "지금 새 버전 확인" };
+        MenuItem checkNow = Item("지금 새 버전 확인", "Icon.RefreshCw");
         checkNow.Click += (_, _) => CheckForUpdatesNow();
         menu.Items.Add(checkNow);
 
-        var elevate = new MenuItem { Header = "관리자 권한으로 재시작" };
+        MenuItem elevate = Item("관리자 권한으로 재시작", "Icon.Shield");
         elevate.Click += (_, _) => RestartElevated();
         menu.Items.Add(elevate);
 
-        menu.Items.Add(new Separator());
+        menu.Items.Add(Line());
 
-        var quit = new MenuItem { Header = "종료" };
+        MenuItem quit = Item("종료", "Icon.Power", "DangerMenuItem");
         quit.Click += (_, _) => Shutdown();
         menu.Items.Add(quit);
 
@@ -400,7 +419,7 @@ public partial class App : Application
 
         if (offer is null)
         {
-            TrayDialog.Show($"최신 버전입니다. (현재 {Describe(AppIdentity.Current)})", "문장 매크로");
+            TrayDialog.Show($"최신 버전입니다. (현재 {Describe(AppIdentity.Current)})", AppName);
             return;
         }
 
@@ -429,7 +448,7 @@ public partial class App : Application
             {DescribeDownload(offer.Asset.SizeBytes)} 지금 프로그램을 대신하고 다시 시작합니다.
             등록해 둔 문장과 메모, 단축키는 그대로 남습니다.
             """,
-            "문장 매크로 업데이트",
+            $"{AppName} 업데이트",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Question);
 
@@ -437,7 +456,7 @@ public partial class App : Application
             return;
 
         _updating = true;
-        string tooltip = _tray?.ToolTipText ?? "문장 매크로";
+        string tooltip = _tray?.ToolTipText ?? AppName;
 
         _balloonOffersUpdate = false;
         _tray?.ShowBalloonTip(
@@ -457,7 +476,7 @@ public partial class App : Application
                 return;
 
             lastPercent = percent;
-            _tray.ToolTipText = $"문장 매크로 — 업데이트 내려받는 중 {percent}%";
+            _tray.ToolTipText = $"{AppName} — 업데이트 내려받는 중 {percent}%";
         });
 
         UpdateResult result = await UpdateInstaller.InstallAsync(offer, _updates.Source, progress);
@@ -489,7 +508,7 @@ public partial class App : Application
 
             받는 곳을 브라우저로 열까요?
             """,
-            "문장 매크로 업데이트",
+            $"{AppName} 업데이트",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
 
@@ -532,7 +551,7 @@ public partial class App : Application
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            TrayDialog.Show("교체는 끝났습니다. 프로그램을 직접 다시 실행해 주세요.", "문장 매크로");
+            TrayDialog.Show("교체는 끝났습니다. 프로그램을 직접 다시 실행해 주세요.", AppName);
         }
 
         Shutdown();

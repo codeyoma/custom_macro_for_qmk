@@ -254,6 +254,112 @@ public class SlotStoreTests : IDisposable
         Assert.Equal(GridRotation.None, store.Rotation);
     }
 
+    // --- 슬롯 맞바꾸기 (관리창에서 끌어다 놓기) ---
+
+    [Fact]
+    public void Swap_ExchangesContentButKeepsEachIndexOnItsKey()
+    {
+        var store = LoadedStore();
+        store.Set(new Slot(0, "인사", "안녕하세요", true));
+        store.Set(new Slot(5, "주소", "서울", false, SlotAction.Text));
+
+        store.Swap(0, 5);
+
+        Assert.Equal(0, store[0].Index);
+        Assert.Equal("주소", store[0].Label);
+        Assert.False(store[0].AppendEnter);
+        Assert.Equal(5, store[5].Index);
+        Assert.Equal("인사", store[5].Label);
+        Assert.True(store[5].AppendEnter);
+    }
+
+    [Fact]
+    public void Swap_WithEmptySlot_MovesContentAndLeavesEmptyBehind()
+    {
+        var store = LoadedStore();
+        store.Set(new Slot(2, "새 탭", string.Empty, false, SlotAction.Shortcut,
+            new Hotkey(HotkeyModifiers.Control, 0x54)));
+
+        store.Swap(2, 23);
+
+        Assert.True(store[2].IsEmpty);
+        Assert.Equal(SlotAction.Shortcut, store[23].Action);
+        Assert.Equal(new Hotkey(HotkeyModifiers.Control, 0x54), store[23].Shortcut);
+    }
+
+    [Fact]
+    public void Swap_SameSlot_ChangesNothing()
+    {
+        var store = LoadedStore();
+        var slot = new Slot(4, "라벨", "본문", false);
+        store.Set(slot);
+
+        store.Swap(4, 4);
+
+        Assert.Equal(slot, store[4]);
+    }
+
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, 24)]
+    public void Swap_OutOfRange_Throws(int first, int second)
+    {
+        var store = LoadedStore();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.Swap(first, second));
+    }
+
+    [Fact]
+    public void Swap_SurvivesSaveAndLoad()
+    {
+        var store = LoadedStore();
+        store.Set(new Slot(0, "하나", "1", false));
+        store.Swap(0, 1);
+        store.Save();
+
+        var reloaded = LoadedStore();
+
+        Assert.True(reloaded[0].IsEmpty);
+        Assert.Equal("하나", reloaded[1].Label);
+    }
+
+    // --- 슬롯마다 마지막으로 저장한 때 ---
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsSavedAt()
+    {
+        var savedAt = new DateTimeOffset(2026, 10, 28, 14, 14, 0, TimeSpan.FromHours(9));
+        var store = LoadedStore();
+        store.Set(new Slot(0, "인사", "안녕", false, SavedAt: savedAt));
+        store.Save();
+
+        Assert.Equal(savedAt, LoadedStore()[0].SavedAt);
+    }
+
+    /// <summary>이 항목이 생기기 전에 저장한 슬롯은 언제 저장했는지 모른다. 지어내지 않는다.</summary>
+    [Fact]
+    public void Load_WithoutSavedAtField_LeavesItUnknown()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "slots": [ { "index": 0, "label": "하나", "text": "본문", "appendEnter": false } ] }
+            """);
+
+        Assert.Null(LoadedStore()[0].SavedAt);
+    }
+
+    [Fact]
+    public void Swap_CarriesSavedAtWithTheContent()
+    {
+        var savedAt = DateTimeOffset.Now;
+        var store = LoadedStore();
+        store.Set(new Slot(3, "라벨", "본문", false, SavedAt: savedAt));
+
+        store.Swap(3, 7);
+
+        Assert.Null(store[3].SavedAt);
+        Assert.Equal(savedAt, store[7].SavedAt);
+    }
+
     // --- 꽂아 쓰는 PCB 가 어느 쪽 반쪽인가 ---
 
     [Fact]

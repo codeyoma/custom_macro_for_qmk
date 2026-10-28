@@ -46,6 +46,13 @@ public partial class ManagerWindow : Window
     private int _secondsLeft;
     private GridRotation? _appliedRotation;
 
+    /// <summary>끌기를 시작한 칸(0부터)과 누른 자리. 조금 움직여야 끌기로 본다. 그 전에 떼면 그냥 누른 것이다.</summary>
+    private int _dragSourceIndex = -1;
+    private Point _dragStart;
+
+    /// <summary>끌어다 놓기에 실어 보내는 자료의 이름. 다른 앱에서 끌어온 것과 섞이지 않게 한다.</summary>
+    private const string SlotDragFormat = "MacroTyper.SlotIndex";
+
     public ManagerWindow(
         SlotStore store,
         TextInjector injector,
@@ -63,20 +70,54 @@ public partial class ManagerWindow : Window
         RefreshHotkeyButton();
 
         MemoBox.Text = _store.Memo;
+        RefreshMemoPlaceholder();
 
         DataObject.AddPastingHandler(LabelBox, OnEditorPasting);
         DataObject.AddPastingHandler(TextBoxContent, OnEditorPasting);
+
+        // 메모는 적은 만큼 자라되 슬롯 격자를 덮지 않게 카드 높이의 일부까지만 자란다. 그 뒤로는 스크롤이다.
+        PadCard.SizeChanged += (_, _) => MemoBox.MaxHeight = Math.Max(56, PadCard.ActualHeight * 0.3);
     }
 
-    // --- 설정 백업 ---
+    // --- 창 테두리 ---
+    //
+    // 제목 표시줄을 걷어냈으므로 창 버튼을 직접 단다.
+
+    private void OnMinimize(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void OnMaximize(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void OnCloseClicked(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>
+    /// 제목 표시줄 없이 최대화하면 창이 화면 가장자리 너머로 크기 조절 테두리만큼 넘친다.
+    /// 그만큼 안쪽으로 들여 내용이 잘리지 않게 한다.
+    /// </summary>
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+
+        bool maximized = WindowState == WindowState.Maximized;
+        Root.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(0);
+        MaximizeGlyph.Data = (Geometry)FindResource(maximized ? "Icon.Copy" : "Icon.Square");
+    }
+
+    // --- 설정을 파일로 저장하고 불러오기 ---
 
     private void OnSettingsClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { ContextMenu: { } menu } button)
             return;
 
+        // 메뉴의 오른쪽 끝을 버튼 오른쪽 끝에 맞춰 바로 아래에 연다.
+        // 메뉴 템플릿은 그림자 자리로 둘레에 투명 여백(왼쪽·오른쪽 16, 위 10)을 두므로 그만큼 되돌린다.
+        const double menuWidth = 272, sideMargin = 16, topMargin = 10;
+
         menu.PlacementTarget = button;
-        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Relative;
+        menu.HorizontalOffset = button.ActualWidth - menuWidth - sideMargin;
+        menu.VerticalOffset = button.ActualHeight + 6 - topMargin;
         menu.IsOpen = true;
     }
 
@@ -139,6 +180,7 @@ public partial class ManagerWindow : Window
         _appliedRotation = null;
         MemoBox.Text = _store.Memo;
         _savedMemo = _store.Memo;
+        RefreshMemoPlaceholder();
 
         RefreshGrid();
         RefreshHotkeyButton();
@@ -170,10 +212,12 @@ public partial class ManagerWindow : Window
     {
         _selectedIndex = -1;
 
-        EditingHeader.Text = "슬롯을 선택하세요";
+        SlotTitle.Text = "슬롯을 선택하세요";
+        SlotMeta.Text = "왼쪽 격자에서 칸을 누르세요";
         LabelBox.Text = string.Empty;
         TextBoxContent.Text = string.Empty;
         AppendEnterBox.IsChecked = false;
+        RefreshGrid();
 
         _capturingSlotShortcut = false;
         _editingShortcut = Hotkey.None;
@@ -203,7 +247,11 @@ public partial class ManagerWindow : Window
     {
         _store.Memo = MemoBox.Text;
         _slotsChanged();
+        RefreshMemoPlaceholder();
     }
+
+    private void RefreshMemoPlaceholder() =>
+        MemoPlaceholder.Visibility = MemoBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
     private void OnMemoCommitted(object sender, RoutedEventArgs e) => SaveMemo();
 
@@ -239,9 +287,12 @@ public partial class ManagerWindow : Window
 
     public void SetConnectionState(bool connected)
     {
-        StatusText.Text = connected ? "매크로패드 연결됨" : "매크로패드 없음";
-        StatusText.Foreground = new SolidColorBrush(connected ? Color.FromRgb(0x0F, 0x6E, 0x56) : Color.FromRgb(0xA3, 0x2D, 0x2D));
-        StatusBadge.Background = new SolidColorBrush(connected ? Color.FromRgb(0xE1, 0xF5, 0xEE) : Color.FromRgb(0xFC, 0xEB, 0xEB));
+        StatusText.Text = connected ? "매크로패드 연결됨" : "매크로패드 연결 안 됨";
+        StatusText.Foreground = new SolidColorBrush(connected ? Color.FromRgb(0x24, 0x8A, 0x3D) : Color.FromRgb(0xD7, 0x00, 0x15));
+        StatusDot.Fill = new SolidColorBrush(connected ? Color.FromRgb(0x34, 0xC7, 0x59) : Color.FromRgb(0xFF, 0x3B, 0x30));
+        StatusPill.Background = new SolidColorBrush(connected
+            ? Color.FromArgb(0x14, 0x34, 0xC7, 0x59)
+            : Color.FromArgb(0x14, 0xFF, 0x3B, 0x30));
     }
 
     public void RefreshGrid()
@@ -256,22 +307,35 @@ public partial class ManagerWindow : Window
         }
 
         SlotCells.ItemsSource = SlotGrid.Cells(rotation, _store.Side)
-            .Select(cell => OverlayCell.From(cell, _store.Slots))
+            .Select(cell => OverlayCell.From(cell, _store.Slots) with
+            {
+                IsSelected = cell.Kind == GridCellKind.Slot && cell.SlotIndex == _selectedIndex,
+            })
             .ToArray();
 
-        RotateButton.Content = $"방향 {(int)rotation}°";
-        SideButton.Content = _store.Side == KeyboardSide.Left ? "왼쪽 PCB" : "오른쪽 PCB";
-        LeftSideItem.IsChecked = _store.Side == KeyboardSide.Left;
-        RightSideItem.IsChecked = _store.Side == KeyboardSide.Right;
+        int used = _store.Slots.Count(slot => !slot.IsEmpty);
+        SubtitleText.Text = $"{MacroProtocol.SlotCount}개 슬롯 중 {used}개 사용 중";
+
+        // 고른 칸을 맞춘다. 이미 그 값이면 Checked 가 다시 오지 않고, 와도 같은 값이라 아무 일도 없다.
+        RotationRadioFor(rotation).IsChecked = true;
+        (_store.Side == KeyboardSide.Left ? LeftSideRadio : RightSideRadio).IsChecked = true;
     }
+
+    private RadioButton RotationRadioFor(GridRotation rotation) => rotation switch
+    {
+        GridRotation.Clockwise90 => Rotation90,
+        GridRotation.Half => Rotation180,
+        GridRotation.CounterClockwise90 => Rotation270,
+        _ => Rotation0,
+    };
 
     // --- 치트시트를 여는 전역 단축키 ---
 
     private void RefreshHotkeyButton()
     {
-        HotkeyButton.Content = _store.CheatHotkey.IsSet
-            ? _store.CheatHotkey.Describe()
-            : "단축키 없음";
+        HotkeyLabel.Text = _store.CheatHotkey.IsSet
+            ? $"치트 시트 {_store.CheatHotkey.Describe()}"
+            : "치트 시트 커스텀 단축키 없음";
     }
 
     private void OnHotkeyButtonClicked(object sender, RoutedEventArgs e)
@@ -283,7 +347,7 @@ public partial class ManagerWindow : Window
         }
 
         _capturingHotkey = true;
-        HotkeyButton.Content = "키를 누르세요";
+        HotkeyLabel.Text = "키를 누르세요";
         HintText.Text = "Ctrl · Alt · Shift · Win 중 하나를 함께 눌러야 합니다. Esc 로 취소, Delete 로 해제";
     }
 
@@ -307,6 +371,9 @@ public partial class ManagerWindow : Window
 
         if (!_capturingHotkey)
         {
+            if (TryHandleMenuShortcut(e))
+                return;
+
             base.OnPreviewKeyDown(e);
             return;
         }
@@ -403,6 +470,27 @@ public partial class ManagerWindow : Window
         HintText.Text = "저장을 눌러야 적용됩니다";
     }
 
+    /// <summary>옵션 메뉴에 적힌 단축키. 메뉴를 열지 않고도 바로 쓴다.</summary>
+    private bool TryHandleMenuShortcut(KeyEventArgs e)
+    {
+        ModifierKeys modifiers = Keyboard.Modifiers;
+
+        Action? action = (modifiers, e.Key) switch
+        {
+            (ModifierKeys.Control, Key.S) => () => OnExport(this, e),
+            (ModifierKeys.Control, Key.O) => () => OnImport(this, e),
+            (ModifierKeys.Control | ModifierKeys.Shift, Key.O) => () => OnOpenSettingsFolder(this, e),
+            _ => null,
+        };
+
+        if (action is null)
+            return false;
+
+        e.Handled = true;
+        action();
+        return true;
+    }
+
     private static bool IsModifierKey(Key key) => key is
         Key.LeftCtrl or Key.RightCtrl or
         Key.LeftAlt or Key.RightAlt or
@@ -426,9 +514,17 @@ public partial class ManagerWindow : Window
     /// 매크로패드를 돌려 놓았을 때 격자도 같이 돌린다.
     /// 슬롯 번호와 등록해 둔 문장은 그대로다. 화면에 늘어놓는 순서만 바뀐다.
     /// </summary>
-    private void OnRotate(object sender, RoutedEventArgs e)
+    private void OnChooseRotation(object sender, RoutedEventArgs e)
     {
-        _store.Rotation = SlotGrid.Next(_store.Rotation);
+        if (sender is not RadioButton { Tag: string degrees } || !int.TryParse(degrees, out int angle))
+            return;
+
+        var rotation = (GridRotation)angle;
+
+        if (rotation == _store.Rotation)
+            return;
+
+        _store.Rotation = rotation;
 
         try
         {
@@ -443,8 +539,6 @@ public partial class ManagerWindow : Window
         RefreshGrid();
         _slotsChanged();
     }
-
-    private void OnToggleSide(object sender, RoutedEventArgs e) => ApplySide(SlotGrid.Other(_store.Side));
 
     private void OnChooseLeftSide(object sender, RoutedEventArgs e) => ApplySide(KeyboardSide.Left);
 
@@ -482,12 +576,124 @@ public partial class ManagerWindow : Window
             SelectSlot(cell.Number - 1);
     }
 
+    // --- 끌어다 놓아 두 슬롯 맞바꾸기 ---
+    //
+    // 문장을 다른 키로 옮기는 길이다. 내용만 서로 건너가고 키 번호는 자리에 남는다.
+    // 조금이라도 움직여야 끌기로 본다. 그 전에 떼면 평소처럼 눌러서 편집하는 것이다.
+
+    private void OnSlotMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragSourceIndex = sender is Button { DataContext: OverlayCell { Kind: GridCellKind.Slot, IsEmpty: false } cell }
+            ? cell.Number - 1
+            : -1;
+        _dragStart = e.GetPosition(this);
+    }
+
+    private void OnSlotMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragSourceIndex < 0 || e.LeftButton != MouseButtonState.Pressed || sender is not Button button)
+            return;
+
+        Vector moved = e.GetPosition(this) - _dragStart;
+
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+
+        int source = _dragSourceIndex;
+        _dragSourceIndex = -1;
+
+        // 버튼이 쥐고 있던 마우스를 놓아야 끌기가 끝난 뒤 눌린 채로 남지 않는다.
+        button.ReleaseMouseCapture();
+        DragDrop.DoDragDrop(button, new DataObject(SlotDragFormat, source), DragDropEffects.Move);
+    }
+
+    private void OnSlotDragOver(object sender, DragEventArgs e)
+    {
+        bool accepts = DropTargetOf(sender, e) is not null;
+
+        e.Effects = accepts ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+
+        ShowDropTarget(sender, accepts);
+    }
+
+    private void OnSlotDragLeave(object sender, DragEventArgs e) => ShowDropTarget(sender, false);
+
+    private void OnSlotDrop(object sender, DragEventArgs e)
+    {
+        ShowDropTarget(sender, false);
+        e.Handled = true;
+
+        if (DropTargetOf(sender, e) is not (int source, int target))
+            return;
+
+        // 편집하다 만 내용이 있으면 맞바꾼 뒤 다시 불러올 때 사라진다. 먼저 저장하게 한다.
+        if (_selectedIndex >= 0 && IsEditorDirty())
+        {
+            HintText.Text = "편집 중인 내용을 먼저 저장하거나 되돌린 뒤 옮겨 주세요";
+            return;
+        }
+
+        _store.Swap(source, target);
+
+        try
+        {
+            _store.Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            HintText.Text = "옮긴 내용을 저장하지 못했습니다";
+        }
+
+        _slotsChanged();
+
+        // 옮긴 문장을 따라가 편집 영역에 띄운다.
+        SelectSlot(target);
+        HintText.Text = $"{source + 1}번과 {target + 1}번을 맞바꿨습니다";
+    }
+
+    /// <summary>놓을 수 있는 자리면 (끌어온 칸, 놓을 칸). 같은 칸이나 치트시트 키 자리면 <c>null</c>.</summary>
+    private static (int Source, int Target)? DropTargetOf(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(SlotDragFormat) || e.Data.GetData(SlotDragFormat) is not int source)
+            return null;
+
+        if (sender is not Button { DataContext: OverlayCell { Kind: GridCellKind.Slot } cell })
+            return null;
+
+        int target = cell.Number - 1;
+        return target == source ? null : (source, target);
+    }
+
+    private static void ShowDropTarget(object sender, bool visible)
+    {
+        if (sender is Button { Template: { } template } button &&
+            template.FindName("DropTarget", button) is UIElement highlight)
+        {
+            highlight.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>편집 영역의 값이 저장된 슬롯과 다른가.</summary>
+    private bool IsEditorDirty()
+    {
+        Slot slot = _store[_selectedIndex];
+
+        return LabelBox.Text.Trim() != slot.Label
+            || TextBoxContent.Text != slot.Text
+            || (AppendEnterBox.IsChecked == true) != slot.AppendEnter
+            || SelectedAction != slot.Action
+            || _editingShortcut != slot.Shortcut;
+    }
+
     private void SelectSlot(int index)
     {
         _selectedIndex = index;
         Slot slot = _store[index];
 
-        EditingHeader.Text = $"슬롯 {index + 1} 편집";
+        SlotTitle.Text = $"슬롯 {index + 1}";
+        SlotMeta.Text = DescribeSlotPlace(slot);
         AppendEnterBox.IsChecked = slot.AppendEnter;
 
         _editingShortcut = slot.Shortcut;
@@ -513,6 +719,33 @@ public partial class ManagerWindow : Window
         TestButton.IsEnabled = true;
 
         HintText.Text = string.Empty;
+        RefreshGrid();
+    }
+
+    /// <summary>
+    /// "1행 1열 · 마지막 저장 오후 2:14". 행·열은 매크로패드 위의 자리다. 화면을 돌려도 바뀌지 않는다.
+    /// 언제 저장했는지 모르는 예전 슬롯은 시각을 지어내지 않고 뺀다.
+    /// </summary>
+    private static string DescribeSlotPlace(Slot slot)
+    {
+        int row = (slot.Index / SlotGrid.SlotsPerRow) + 1;
+        int column = (slot.Index % SlotGrid.SlotsPerRow) + 1;
+        string place = $"{row}행 {column}열";
+
+        return slot.SavedAt is { } savedAt ? $"{place} · 마지막 저장 {DescribeTime(savedAt)}" : place;
+    }
+
+    private static string DescribeTime(DateTimeOffset moment)
+    {
+        DateTime local = moment.LocalDateTime;
+        var korean = System.Globalization.CultureInfo.GetCultureInfo("ko-KR");
+
+        if (local.Date == DateTime.Today)
+            return local.ToString("tt h:mm", korean);
+
+        return local.Year == DateTime.Today.Year
+            ? local.ToString("M월 d일 tt h:mm", korean)
+            : local.ToString("yyyy년 M월 d일 tt h:mm", korean);
     }
 
     // --- 전각 영문·기호·띄어쓰기 ---
@@ -551,7 +784,10 @@ public partial class ManagerWindow : Window
         }
 
         if (box == TextBoxContent)
+        {
             RefreshFullWidthWarning();
+            TextCounter.Text = $"{TextBoxContent.Text.Length} / {TextBoxContent.MaxLength}";
+        }
     }
 
     private static bool ContainsFullWidth(string text, int offset, int length)
@@ -642,7 +878,7 @@ public partial class ManagerWindow : Window
         TextPane.Visibility = shortcut ? Visibility.Collapsed : Visibility.Visible;
 
         // 키 조합에는 "삽입 후 Enter" 가 의미 없다.
-        AppendEnterBox.Visibility = shortcut ? Visibility.Collapsed : Visibility.Visible;
+        EnterOption.Visibility = shortcut ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void RefreshSlotShortcutButton()
@@ -669,13 +905,17 @@ public partial class ManagerWindow : Window
         if (_selectedIndex < 0)
             return;
 
-        _store.Set(new Slot(
+        var saved = new Slot(
             _selectedIndex,
             LabelBox.Text.Trim(),
             TextBoxContent.Text,
             AppendEnterBox.IsChecked == true,
             SelectedAction,
-            _editingShortcut));
+            _editingShortcut,
+            DateTimeOffset.Now);
+
+        _store.Set(saved);
+        SlotMeta.Text = DescribeSlotPlace(saved);
 
         try
         {
@@ -710,7 +950,7 @@ public partial class ManagerWindow : Window
         }
 
         _secondsLeft = TestCountdownSeconds;
-        TestButton.Content = "취소";
+        TestButtonLabel.Text = "취소";
         HintText.Text = $"{_secondsLeft}초 뒤에 넣습니다. 넣어 볼 창을 클릭하세요";
 
         _countdown = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -747,7 +987,7 @@ public partial class ManagerWindow : Window
         _countdown.Tick -= OnCountdownTick;
         _countdown = null;
 
-        TestButton.Content = "테스트 삽입";
+        TestButtonLabel.Text = "테스트 삽입";
     }
 
     private static string Describe(InjectionOutcome outcome) => outcome switch

@@ -215,7 +215,7 @@ public sealed class SlotStore
             _memo,
             CheckForUpdates,
             _slots
-                .Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter, s.Action, s.Shortcut))
+                .Select(s => new SlotEntry(s.Index, s.Label, s.Text, s.AppendEnter, s.Action, s.Shortcut, s.SavedAt))
                 .ToArray());
 
         string temp = path + ".tmp";
@@ -228,6 +228,23 @@ public sealed class SlotStore
     {
         ThrowIfOutOfRange(slot.Index, nameof(slot));
         _slots[slot.Index] = slot;
+    }
+
+    /// <summary>
+    /// 두 슬롯의 내용을 맞바꾼다. 문장을 다른 키로 옮길 때 쓴다.
+    /// 인덱스는 키 자리에 묶여 있으므로 그대로 두고 내용만 서로 건너간다.
+    /// </summary>
+    public void Swap(int first, int second)
+    {
+        ThrowIfOutOfRange(first, nameof(first));
+        ThrowIfOutOfRange(second, nameof(second));
+
+        if (first == second)
+            return;
+
+        Slot moving = _slots[first];
+        _slots[first] = _slots[second] with { Index = first };
+        _slots[second] = moving with { Index = second };
     }
 
     private static Slot[] CreateEmptySet() =>
@@ -251,7 +268,8 @@ public sealed class SlotStore
                 entry.Text ?? string.Empty,
                 entry.AppendEnter,
                 Enum.IsDefined(entry.Action) ? entry.Action : SlotAction.Text,
-                entry.Shortcut);
+                entry.Shortcut,
+                entry.SavedAt);
         }
 
         return result;
@@ -291,6 +309,8 @@ public sealed class SlotStore
         bool? CheckForUpdates, SlotEntry[] Slots);
 
     // action 과 shortcut 이 없는 예전 파일은 문장 슬롯으로 읽힌다.
+    // savedAt 이 없으면 언제 저장했는지 모르는 것으로 둔다.
     internal sealed record SlotEntry(
-        int Index, string? Label, string? Text, bool AppendEnter, SlotAction Action, Hotkey Shortcut);
+        int Index, string? Label, string? Text, bool AppendEnter, SlotAction Action, Hotkey Shortcut,
+        DateTimeOffset? SavedAt);
 }

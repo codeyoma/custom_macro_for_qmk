@@ -1,7 +1,9 @@
 <Window x:Class="MacroTyper.Ui.OverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MacroTyper 치트시트"
+        xmlns:ui="clr-namespace:MacroTyper.Ui"
+        x:Name="Self"
+        Title="은선 매크로 치트시트"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -11,7 +13,9 @@
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="Manual"
         Focusable="False"
-        IsTabStop="False">
+        IsTabStop="False"
+        FontFamily="{DynamicResource UiFont}"
+        UseLayoutRounding="True">
 
     <!--
         ShowInTaskbar 를 일부러 지정하지 않는다.
@@ -23,189 +27,297 @@
     -->
 
     <Window.Resources>
-        <!--
-            기본 스크롤 막대는 밝은 회색이라 이 어두운 판 위에서 내용보다 먼저 눈에 띈다.
-            선로와 화살표를 걷어내고 손잡이만 남긴다. 끌어서 움직이는 것과 휠만 되면 충분하다.
-        -->
-        <Style x:Key="OverlayScrollBar" TargetType="ScrollBar">
-            <Setter Property="Width" Value="5" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ScrollBar">
-                        <Track x:Name="PART_Track" IsDirectionReversed="True">
-                            <Track.Thumb>
-                                <Thumb>
-                                    <Thumb.Template>
-                                        <ControlTemplate TargetType="Thumb">
-                                            <Border Background="#59FFFFFF" CornerRadius="2.5" />
-                                        </ControlTemplate>
-                                    </Thumb.Template>
-                                </Thumb>
-                            </Track.Thumb>
-                        </Track>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="Visible" />
+
+            <!--
+                기본 스크롤 막대는 밝은 회색이라 이 어두운 판 위에서 내용보다 먼저 눈에 띈다.
+                선로와 화살표를 걷어내고 손잡이만 남긴다. 끌어서 움직이는 것과 휠만 되면 충분하다.
+            -->
+            <Style x:Key="OverlayScrollBar" TargetType="ScrollBar">
+                <Setter Property="Width" Value="5" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Background="#59FFFFFF" CornerRadius="2.5" />
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 어두운 판 위의 키캡. 아랫면을 두껍게 그려 눌리는 키처럼 보이게 한다. -->
+            <Style x:Key="DarkKeycap" TargetType="Border">
+                <Setter Property="Background" Value="#1FFFFFFF" />
+                <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+                <Setter Property="BorderThickness" Value="1,1,1,2" />
+                <Setter Property="CornerRadius" Value="5" />
+            </Style>
+        </ResourceDictionary>
     </Window.Resources>
 
-    <Border Background="#F0181818"
-            CornerRadius="12"
-            BorderBrush="#24FFFFFF"
-            BorderThickness="1"
-            Padding="16">
+    <!--
+        둘레의 투명한 여백은 그림자 자리다. 화면이 작으면 Scaler 가 판 전체를 비율 그대로 줄인다.
+        디자인의 배경 흐림은 쓰지 않는다. WPF 의 투명 창은 뒤를 흐리지 못하고, Windows 11 의 Acrylic 은
+        포커스를 받지 않는 창에서 단색으로 바뀐다. 그 대신 판을 조금 더 불투명하게 해 아래 글자가 비치지 않게 한다.
+    -->
+    <Grid Margin="40,28,40,52">
+        <Viewbox x:Name="Scaler" StretchDirection="DownOnly">
+            <Grid>
+                <!--
+                    그림자는 판 자체에 건다. 뒤에 따로 불투명한 판을 깔면 반투명이 사라진다.
+                    이 창은 투명 창이라 원래부터 ClearType 이 꺼져 있어서, 효과를 걸어도 글자가 더 흐려지지 않는다.
+                -->
+                <Border Background="#EB1C1C1E" CornerRadius="26" BorderBrush="#24FFFFFF" BorderThickness="1" Padding="20">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Black" Opacity="0.4" BlurRadius="40" ShadowDepth="16" Direction="270" />
+                    </Border.Effect>
+                    <DockPanel>
 
-      <DockPanel>
+                        <!-- 제목과 닫기·편집 -->
+                        <DockPanel DockPanel.Dock="Top" Margin="4,0,4,16">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel x:Name="EscHint" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="5" Padding="6,1">
+                                        <TextBlock Text="Esc" FontSize="11" FontWeight="Medium" Foreground="#B3FFFFFF" />
+                                    </Border>
+                                    <TextBlock Text="닫기" FontSize="12" Foreground="#80FFFFFF" Margin="6,0,0,0"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
 
-        <!--
-            편집 버튼. 누르면 관리창이 열린다.
-            치트시트를 보다가 "이 칸 내용을 바꿔야겠다" 싶을 때 바로 갈 수 있게 둔다.
-        -->
-        <Border x:Name="EditButton" DockPanel.Dock="Right"
-                Width="34" Margin="10,3,3,3"
-                CornerRadius="6"
-                Background="#17FFFFFF"
-                Cursor="Hand"
-                ToolTip="문장 관리창 열기"
-                MouseLeftButtonUp="OnEditClicked">
-            <TextBlock Text="편집"
-                       FontSize="11"
-                       Foreground="#C8FFFFFF"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center">
-                <TextBlock.LayoutTransform>
-                    <RotateTransform Angle="90" />
-                </TextBlock.LayoutTransform>
-            </TextBlock>
-        </Border>
-
-        <!-- 관리창에서 적은 메모. 비어 있으면 접는다. -->
-        <Border x:Name="MemoPanel" DockPanel.Dock="Bottom"
-                Margin="3,10,3,3" Padding="10,7"
-                CornerRadius="6"
-                Background="#12FFFFFF"
-                Visibility="Collapsed">
-            <!--
-                길어지면 스크롤한다. 높이 상한은 남겨 둔다. 창이 화면 밖으로 자라 버리면
-                그때는 아무것도 읽을 수 없기 때문이다. 상한까지는 창이 커지고 그 뒤로는 스크롤이다.
-
-                이 창은 포커스를 받지 않지만 마우스 입력은 받는다(칸을 눌러 삽입해야 해서
-                클릭 통과를 꺼 두었다). 그래서 손잡이를 끄는 길은 언제나 열려 있고,
-                휠은 Windows 10 부터 기본으로 켜진 '가리키는 창 스크롤'을 타고 들어온다.
-            -->
-            <ScrollViewer x:Name="MemoScroll"
-                          MaxHeight="225"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <ScrollViewer.Resources>
-                    <Style TargetType="ScrollBar" BasedOn="{StaticResource OverlayScrollBar}" />
-                </ScrollViewer.Resources>
-                <TextBlock x:Name="MemoText"
-                           FontSize="11"
-                           LineHeight="15"
-                           TextWrapping="Wrap"
-                           Margin="0,0,6,0"
-                           Foreground="#B4FFFFFF" />
-            </ScrollViewer>
-        </Border>
-
-        <ItemsControl x:Name="Cells">
-            <!-- 행/열은 매크로패드를 돌려 놓은 방향에 따라 코드에서 바꾼다. -->
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <UniformGrid x:Name="CellLayout" Rows="4" Columns="6" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <!-- 칸을 누르면 그 슬롯이 바로 삽입된다. 손이 마우스에 있을 때를 위한 길. -->
-                    <Border x:Name="Cell"
-                            Width="124" Height="70" Margin="3"
-                            CornerRadius="6"
-                            Background="#17FFFFFF"
-                            Cursor="Hand"
-                            MouseLeftButtonUp="OnCellClicked">
-                            <StackPanel Margin="8,6">
                                 <!--
-                                    표시는 번호와 같은 줄에 오른쪽부터 쌓는다.
-                                    칸 위에 겹쳐 놓으면 표시가 늘어날 때마다 서로 부딪힌다.
+                                    편집 버튼. 누르면 관리창이 열린다.
+                                    치트시트를 보다가 "이 칸 내용을 바꿔야겠다" 싶을 때 바로 갈 수 있게 둔다.
                                 -->
-                                <DockPanel>
-                                    <!-- 삽입 후 Enter 가 붙는 슬롯. 어두운 판이라 밝은 점을 쓴다. -->
-                                    <Ellipse x:Name="EnterDot" DockPanel.Dock="Right"
-                                             Width="6" Height="6"
-                                             Fill="#D8FFFFFF"
-                                             VerticalAlignment="Center"
-                                             Margin="5,0,0,0"
-                                             Visibility="Collapsed" />
-
-                                    <!-- 키를 눌러 주는 칸 표시. 글이 아니라 키가 나간다는 뜻이다. -->
-                                    <TextBlock x:Name="ShortcutMark" DockPanel.Dock="Right"
-                                               Text="&#x2328;" FontSize="12"
-                                               FontFamily="Segoe UI Symbol, Segoe UI"
-                                               Foreground="#9EFFFFFF"
-                                               Visibility="Collapsed" />
-                                    <TextBlock x:Name="Number"
-                                               Text="{Binding Number}"
-                                               FontSize="10"
-                                               Foreground="#6BFFFFFF" />
-                                </DockPanel>
-                                <TextBlock x:Name="Label"
-                                           Text="{Binding Label}"
-                                           FontSize="12"
-                                           Margin="0,1,0,0"
-                                           TextTrimming="CharacterEllipsis"
-                                           Foreground="#F2F2F0" />
-
-                                <!-- 실제 삽입될 문장. 넘치면 자른다. -->
-                                <TextBlock x:Name="Preview"
-                                           Text="{Binding Preview}"
-                                           FontSize="10"
-                                           Margin="0,3,0,0"
-                                           LineHeight="13"
-                                           TextWrapping="Wrap"
-                                           TextTrimming="CharacterEllipsis"
-                                           MaxHeight="26"
-                                           Foreground="#7AFFFFFF" />
+                                <Border x:Name="EditButton" Margin="14,0,0,0" CornerRadius="15" Padding="14,6"
+                                        Cursor="Hand" ToolTip="관리창 열기" MouseLeftButtonUp="OnEditClicked">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#1FFFFFFF" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#33FFFFFF" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="13" Height="13">
+                                            <Path Style="{StaticResource Icon}" Stroke="White" Data="{StaticResource Icon.Pencil}" />
+                                        </Viewbox>
+                                        <TextBlock Text="편집" FontSize="12" FontWeight="SemiBold" Foreground="White" Margin="6,0,0,0" />
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
-                    </Border>
 
-                    <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding IsEmpty}" Value="True">
-                            <Setter TargetName="Cell" Property="Background" Value="#08FFFFFF" />
-                            <Setter TargetName="Number" Property="Foreground" Value="#42FFFFFF" />
-                        </DataTrigger>
-                        <!-- 라벨이 없으면 제목 자리에 이미 문장이 나온다. 아래를 비워 자리를 돌려준다. -->
-                        <DataTrigger Binding="{Binding Preview}" Value="">
-                            <Setter TargetName="Preview" Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="치트시트" FontSize="16" FontWeight="Bold" Foreground="White" />
+                                <TextBlock x:Name="MetaText" Text="0개 슬롯" FontSize="12" Foreground="#80FFFFFF"
+                                           Margin="10,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
 
-                        <!-- 키가 없는 자리. 칸은 차지하되 보이지 않아야 실물과 모양이 맞는다. -->
-                        <DataTrigger Binding="{Binding Kind}" Value="Blank">
-                            <Setter TargetName="Cell" Property="Visibility" Value="Hidden" />
-                        </DataTrigger>
+                        <!-- 관리창에서 적은 메모. 비어 있으면 접는다. -->
+                        <Border x:Name="MemoPanel" DockPanel.Dock="Bottom"
+                                Margin="0,12,0,0" Padding="14,10"
+                                CornerRadius="14"
+                                Background="#0FFFFFFF"
+                                Visibility="Collapsed">
+                            <!--
+                                길어지면 스크롤한다. 높이 상한은 남겨 둔다. 창이 화면 밖으로 자라 버리면
+                                그때는 아무것도 읽을 수 없기 때문이다. 상한까지는 창이 커지고 그 뒤로는 스크롤이다.
 
-                        <!-- 지금 누르고 있는 그 키. 번호가 없으므로 감춘다. -->
-                        <DataTrigger Binding="{Binding Kind}" Value="CheatKey">
-                            <Setter TargetName="Cell" Property="Background" Value="#2E9E7A" />
-                            <Setter TargetName="Cell" Property="Cursor" Value="Arrow" />
-                            <Setter TargetName="Number" Property="Visibility" Value="Collapsed" />
-                            <Setter TargetName="Label" Property="Foreground" Value="#FFFFFF" />
-                            <Setter TargetName="Label" Property="VerticalAlignment" Value="Center" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding AppendEnter}" Value="True">
-                            <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding IsShortcut}" Value="True">
-                            <Setter TargetName="ShortcutMark" Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </DataTemplate.Triggers>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                                이 창은 포커스를 받지 않지만 마우스 입력은 받는다(칸을 눌러 삽입해야 해서
+                                클릭 통과를 꺼 두었다). 그래서 손잡이를 끄는 길은 언제나 열려 있고,
+                                휠은 Windows 10 부터 기본으로 켜진 '가리키는 창 스크롤'을 타고 들어온다.
+                            -->
+                            <ScrollViewer x:Name="MemoScroll"
+                                          MaxHeight="160"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ScrollViewer.Resources>
+                                    <Style TargetType="ScrollBar" BasedOn="{StaticResource OverlayScrollBar}" />
+                                </ScrollViewer.Resources>
+                                <TextBlock x:Name="MemoText"
+                                           FontSize="12"
+                                           LineHeight="17"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,6,0"
+                                           Foreground="#B3FFFFFF" />
+                            </ScrollViewer>
+                        </Border>
 
-      </DockPanel>
-    </Border>
+                        <ItemsControl x:Name="Cells" Margin="-4">
+                            <!-- 행/열은 매크로패드를 돌려 놓은 방향에 따라 코드에서 바꾼다. -->
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="4" Columns="7" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid x:Name="Root" Width="163" Height="100" Margin="4">
+                                        <!-- 치트시트 키의 초록 빛. 글자가 흐려지지 않게 판 뒤에 따로 깐다. -->
+                                        <Border x:Name="Glow" CornerRadius="14" Background="#30D158" Visibility="Collapsed">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="#30D158" Opacity="0.4" BlurRadius="24" ShadowDepth="0" />
+                                            </Border.Effect>
+                                        </Border>
+
+                                        <!-- 칸을 누르면 그 슬롯이 바로 삽입된다. 손이 마우스에 있을 때를 위한 길. -->
+                                        <Border x:Name="Cell"
+                                                CornerRadius="14"
+                                                Background="#17FFFFFF"
+                                                BorderBrush="#14FFFFFF"
+                                                BorderThickness="1"
+                                                Padding="14,11"
+                                                Cursor="Hand"
+                                                MouseLeftButtonUp="OnCellClicked">
+                                            <Grid>
+                                                <!-- 문장·단축키 슬롯 -->
+                                                <DockPanel x:Name="SlotContent">
+                                                    <TextBlock x:Name="Number" DockPanel.Dock="Top" Text="{Binding Number}"
+                                                               FontSize="11" FontWeight="Medium" Foreground="#66FFFFFF" />
+
+                                                    <StackPanel x:Name="Body" VerticalAlignment="Bottom">
+                                                        <TextBlock x:Name="Label" Text="{Binding Label}" FontSize="15" FontWeight="SemiBold"
+                                                                   Foreground="White" TextTrimming="CharacterEllipsis" />
+
+                                                        <DockPanel x:Name="Bottom" Margin="0,2,0,0">
+                                                            <Border x:Name="EnterKeycap" DockPanel.Dock="Right" Style="{StaticResource DarkKeycap}"
+                                                                    Padding="7,3" Margin="8,0,0,0" VerticalAlignment="Bottom"
+                                                                    Visibility="Collapsed">
+                                                                <Viewbox Width="12" Height="12">
+                                                                    <Path Style="{StaticResource Icon}" Stroke="#E6FFFFFF"
+                                                                          Data="{StaticResource Icon.CornerDownLeft}" />
+                                                                </Viewbox>
+                                                            </Border>
+
+                                                            <!-- 키 조합 칸은 문장 대신 키캡을 + 로 잇는다. -->
+                                                            <ItemsControl x:Name="Keys" ItemsSource="{Binding Keys}" Visibility="Collapsed"
+                                                                          Margin="0,4,0,0">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal" />
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock x:Name="Plus" Text="+" FontSize="11" Foreground="#59FFFFFF"
+                                                                                       Margin="4,0" VerticalAlignment="Center" />
+                                                                            <Border Style="{StaticResource DarkKeycap}" Padding="8,2">
+                                                                                <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold"
+                                                                                           Foreground="#E6FFFFFF" />
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                        <DataTemplate.Triggers>
+                                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}"
+                                                                                         Value="{x:Null}">
+                                                                                <Setter TargetName="Plus" Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </DataTemplate.Triggers>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+
+                                                            <!-- 실제 삽입될 문장. 두 줄을 넘치면 자른다. -->
+                                                            <TextBlock x:Name="Preview" Text="{Binding Preview}" FontSize="11"
+                                                                       Foreground="#8CFFFFFF" LineHeight="15"
+                                                                       LineStackingStrategy="BlockLineHeight"
+                                                                       Height="30" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                                                        </DockPanel>
+                                                    </StackPanel>
+                                                </DockPanel>
+
+                                                <!-- 지금 누르고 있는 그 치트시트 키 -->
+                                                <DockPanel x:Name="CheatContent" Visibility="Collapsed">
+                                                    <DockPanel DockPanel.Dock="Top">
+                                                        <TextBlock DockPanel.Dock="Right" Text="누르는 중" FontSize="10" FontWeight="SemiBold"
+                                                                   Foreground="#CCFFFFFF" VerticalAlignment="Center"
+                                                                   Visibility="{Binding IsHeld, ElementName=Self, Converter={StaticResource Visible}}" />
+                                                        <Viewbox Width="15" Height="15" HorizontalAlignment="Left">
+                                                            <Path Style="{StaticResource Icon}" Stroke="White" Data="{StaticResource Icon.BookOpen}" />
+                                                        </Viewbox>
+                                                    </DockPanel>
+                                                    <TextBlock Text="치트시트" FontSize="15" FontWeight="Bold" Foreground="White"
+                                                               VerticalAlignment="Bottom" />
+                                                </DockPanel>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+
+                                    <DataTemplate.Triggers>
+                                        <!-- 라벨이 없으면 제목 자리를 비운다. -->
+                                        <DataTrigger Binding="{Binding Label}" Value="">
+                                            <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Preview}" Value="">
+                                            <Setter TargetName="Preview" Property="Height" Value="Auto" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding AppendEnter}" Value="True">
+                                            <Setter TargetName="EnterKeycap" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsShortcut}" Value="True">
+                                            <Setter TargetName="Keys" Property="Visibility" Value="Visible" />
+                                            <Setter TargetName="Preview" Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+
+                                        <!-- 빈 칸은 거의 보이지 않게 둔다. 눌러도 아무 일도 없다. -->
+                                        <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                            <Setter TargetName="Cell" Property="Background" Value="#08FFFFFF" />
+                                            <Setter TargetName="Cell" Property="BorderBrush" Value="Transparent" />
+                                            <Setter TargetName="Cell" Property="Cursor" Value="Arrow" />
+                                            <Setter TargetName="Number" Property="Foreground" Value="#2EFFFFFF" />
+                                            <Setter TargetName="Body" Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+
+                                        <!-- 누를 수 있는 칸은 마우스가 올라가면 밝아진다. -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsMouseOver, ElementName=Cell}" Value="True" />
+                                                <Condition Binding="{Binding IsEmpty}" Value="False" />
+                                                <Condition Binding="{Binding Kind}" Value="Slot" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter TargetName="Cell" Property="Background" Value="#29FFFFFF" />
+                                        </MultiDataTrigger>
+
+                                        <!-- 키가 없는 자리. 칸은 차지하되 보이지 않아야 실물과 모양이 맞는다. -->
+                                        <DataTrigger Binding="{Binding Kind}" Value="Blank">
+                                            <Setter TargetName="Root" Property="Visibility" Value="Hidden" />
+                                        </DataTrigger>
+
+                                        <DataTrigger Binding="{Binding Kind}" Value="CheatKey">
+                                            <Setter TargetName="Cell" Property="Background" Value="#30D158" />
+                                            <Setter TargetName="Cell" Property="BorderBrush" Value="Transparent" />
+                                            <Setter TargetName="Cell" Property="Cursor" Value="Arrow" />
+                                            <Setter TargetName="Cell" Property="Padding" Value="14,12" />
+                                            <Setter TargetName="Glow" Property="Visibility" Value="Visible" />
+                                            <Setter TargetName="SlotContent" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="CheatContent" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Viewbox>
+    </Grid>
 </Window>

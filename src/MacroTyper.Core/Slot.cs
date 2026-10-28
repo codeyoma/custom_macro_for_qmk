@@ -23,13 +23,18 @@ public enum SlotAction
 /// 전역 단축키와 같은 자료 구조를 쓰지만 뜻이 다르다. 저쪽은 "누르면 반응할 조합"이고
 /// 이쪽은 "눌러 줄 조합"이다. 그래서 보조 키 없는 단일 키(F5 등)도 그대로 받는다.
 /// </param>
+/// <param name="SavedAt">
+/// 관리창에서 마지막으로 저장한 때. 이 항목이 생기기 전에 저장한 슬롯은 모른다(<c>null</c>).
+/// 슬롯을 맞바꾸면 내용을 따라간다.
+/// </param>
 public sealed record Slot(
     int Index,
     string Label,
     string Text,
     bool AppendEnter,
     SlotAction Action = SlotAction.Text,
-    Hotkey Shortcut = default)
+    Hotkey Shortcut = default,
+    DateTimeOffset? SavedAt = null)
 {
     /// <summary>보낼 것이 없는 슬롯. 키를 눌러도 아무 일도 일어나지 않는다.</summary>
     public bool IsEmpty => Action == SlotAction.Shortcut

@@ -1,132 +1,709 @@
 <Window x:Class="MacroTyper.Ui.ManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="문장 매크로"
-        Width="840" Height="700"
-        MinWidth="760" MinHeight="620"
+        Title="은선 매크로"
+        Width="1280" Height="820"
+        MinWidth="1180" MinHeight="720"
         WindowStartupLocation="CenterScreen"
-        Background="#FAFAF8">
+        Background="#F5F5F7"
+        FontFamily="{DynamicResource UiFont}"
+        Foreground="#1D1D1F"
+        UseLayoutRounding="True">
 
-    <DockPanel>
+    <!--
+        제목 표시줄을 걷어내고 위쪽 도구 막대가 그 자리를 대신한다.
+        도구 막대 빈 곳을 끌면 창이 움직이고, 두 번 누르면 최대화된다(WindowChrome 이 처리한다).
+        Windows 11 은 이런 창도 모서리를 둥글게 깎고 얇은 테두리를 그려 준다.
+    -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="60"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
 
-        <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E4E4DE" BorderThickness="0,0,0,1" Padding="16,12">
-            <DockPanel>
-                <Border x:Name="StatusBadge" DockPanel.Dock="Right"
-                        Background="#FCEBEB" CornerRadius="6" Padding="10,4" VerticalAlignment="Center">
-                    <TextBlock x:Name="StatusText" Text="매크로패드 찾는 중" FontSize="12" Foreground="#A32D2D" />
-                </Border>
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-                <!-- 매크로패드를 돌려 놓고 쓸 때 화면 격자도 같이 돌린다. -->
-                <Button x:Name="RotateButton" DockPanel.Dock="Right"
-                        Content="방향 0°" Margin="0,0,10,0" Padding="12,4" Height="28"
-                        VerticalAlignment="Center"
-                        ToolTip="매크로패드를 돌려 놓은 방향에 맞춰 격자를 90도씩 돌립니다"
-                        Click="OnRotate" />
+            <!-- 카드 그림자. 글자가 흐려지지 않게 내용 뒤의 별도 판에만 건다. -->
+            <DropShadowEffect x:Key="CardShadow" Color="Black" Opacity="0.06" BlurRadius="3" ShadowDepth="1" Direction="270" />
+            <DropShadowEffect x:Key="SegmentShadow" Color="Black" Opacity="0.13" BlurRadius="2" ShadowDepth="1" Direction="270" />
 
-                <!-- 왼쪽 반쪽과 오른쪽 반쪽은 맨 아랫줄이 튀어나온 쪽이 반대다. -->
-                <Button x:Name="SideButton" DockPanel.Dock="Right"
-                        Content="오른쪽 PCB" Margin="0,0,10,0" Padding="12,4" Height="28"
-                        VerticalAlignment="Center"
-                        ToolTip="꽂아 쓰는 PCB 가 왼쪽 반쪽인지 오른쪽 반쪽인지 고릅니다. 펌웨어도 같은 쪽으로 구워야 합니다"
-                        Click="OnToggleSide" />
+            <!-- 도구 막대의 흰 버튼 -->
+            <Style x:Key="ToolbarButton" TargetType="Button">
+                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                <Setter Property="Background" Value="White" />
+                <Setter Property="BorderBrush" Value="{StaticResource Hairline}" />
+                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Frame" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="#FAFAFC" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="#EDEDF0" />
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-                <!--
-                    설정 백업. 자주 쓰는 기능이 아니라 메뉴로 접어 둔다.
-                    PCB 쪽은 위 버튼과 같은 설정이다. 설정을 찾는 사람이 여기서도 고를 수 있게 둔다.
-                -->
-                <Button x:Name="SettingsButton" DockPanel.Dock="Right"
-                        Content="설정 ▾" Margin="0,0,10,0" Padding="10,4" Height="28"
-                        VerticalAlignment="Center"
-                        Click="OnSettingsClicked">
-                    <Button.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem x:Name="LeftSideItem" Header="왼쪽 PCB 사용" Click="OnChooseLeftSide" />
-                            <MenuItem x:Name="RightSideItem" Header="오른쪽 PCB 사용" Click="OnChooseRightSide" />
-                            <Separator />
-                            <MenuItem Header="JSON 으로 내보내기" Click="OnExport" />
-                            <MenuItem Header="JSON 에서 가져오기" Click="OnImport" />
-                            <Separator />
-                            <MenuItem Header="설정 파일 폴더 열기" Click="OnOpenSettingsFolder" />
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
+            <!-- 창 버튼(최소화·최대화·닫기) -->
+            <Style x:Key="CaptionButton" TargetType="Button">
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Foreground" Value="{StaticResource InkSecondary}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Frame" Background="{TemplateBinding Background}" CornerRadius="6">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="#0F000000" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="#1A000000" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-                <!-- 매크로패드 없이도 치트시트를 열 수 있는 전역 단축키. -->
-                <Button x:Name="HotkeyButton" DockPanel.Dock="Right"
-                        Content="단축키 없음" Margin="0,0,10,0" Padding="12,4" Height="28"
-                        VerticalAlignment="Center"
-                        ToolTip="치트시트를 여는 전역 단축키입니다. 눌러서 설정하세요"
-                        Click="OnHotkeyButtonClicked" />
+            <Style x:Key="CloseCaptionButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#E81123" />
+                        <Setter Property="Foreground" Value="White" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
 
-                <TextBlock Text="문장 매크로" FontSize="15" FontWeight="Medium" VerticalAlignment="Center" />
-            </DockPanel>
-        </Border>
+            <!--
+                도구 막대의 분할 선택(방향, PCB 쪽). 고른 칸만 흰 판이 떠오른다.
+                아이콘은 Foreground 를 따라가므로 고른 칸과 아닌 칸의 색이 함께 바뀐다.
+            -->
+            <Style x:Key="Segment" TargetType="RadioButton">
+                <Setter Property="Foreground" Value="{StaticResource InkSecondary}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Padding" Value="10,5" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid>
+                                <Border x:Name="Lift" Background="White" CornerRadius="6"
+                                        Effect="{StaticResource SegmentShadow}" Visibility="Collapsed" />
+                                <Border x:Name="Hover" Background="#0A000000" CornerRadius="6" Visibility="Collapsed" />
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Hover" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Lift" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="Hover" Property="Visibility" Value="Collapsed" />
+                                    <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <!--
-            늘 떠 있는 메모. 편집 영역보다 먼저 선언해야 DockPanel 이 맨 아래에 놓는다.
-            치트시트에도 같은 내용이 뜬다.
-        -->
-        <Border DockPanel.Dock="Bottom" Background="#F4F4F0" BorderBrush="#E4E4DE" BorderThickness="0,1,0,0" Padding="16,10">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Text="메모" FontSize="11" Foreground="#5F5E5A"
-                           VerticalAlignment="Top" Margin="0,7,10,0" />
-                <!--
-                    적은 만큼 끝없이 자란다. 상한을 두지 않는다.
-                    자란 만큼 위쪽 슬롯 격자의 자리를 가져가지만, 그쪽은 ScrollViewer 안에 있어
-                    좁아지면 스크롤로 버틴다. 창을 키우거나 최대화하면 둘 다 넉넉해진다.
-                -->
-                <TextBox x:Name="MemoBox"
-                         MinLines="3"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Auto"
-                         Padding="8,6"
-                         Background="White"
-                         ToolTip="여기 적은 내용이 치트시트 아래에도 그대로 보입니다"
-                         TextChanged="OnMemoChanged"
-                         LostFocus="OnMemoCommitted" />
-            </DockPanel>
-        </Border>
+            <!-- 편집 영역의 문장/단축키 고르기. 도구 막대 것보다 크다. -->
+            <Style x:Key="TypeSegment" TargetType="RadioButton" BasedOn="{StaticResource Segment}">
+                <Setter Property="Foreground" Value="{StaticResource InkTertiary}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Padding" Value="0,7" />
+            </Style>
 
-        <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E4E4DE" BorderThickness="0,1,0,0" Padding="16">
-            <StackPanel>
-                <DockPanel Margin="0,0,0,10">
-                    <TextBlock x:Name="EditingHeader" Text="슬롯을 선택하세요" FontSize="12" Foreground="#5F5E5A"
-                               VerticalAlignment="Center" />
+            <!-- 입력란. 평소엔 옅은 회색 판이고, 들어가 있으면 흰 바탕에 파란 테와 은은한 빛이 돈다. -->
+            <Style x:Key="FieldBox" TargetType="TextBox">
+                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Padding" Value="10,7" />
+                <Setter Property="CaretBrush" Value="{StaticResource Accent}" />
+                <Setter Property="SelectionBrush" Value="{StaticResource Accent}" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Grid>
+                                <Border x:Name="Glow" CornerRadius="9" Background="White" Visibility="Collapsed">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="#0071E3" Opacity="0.2" BlurRadius="6" ShadowDepth="0" />
+                                    </Border.Effect>
+                                </Border>
+                                <Border x:Name="Frame" CornerRadius="9" Background="{StaticResource Field}"
+                                        BorderBrush="Transparent" BorderThickness="2">
+                                    <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                                  Focusable="False" />
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="White" />
+                                    <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                    <Setter TargetName="Glow" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 켜고 끄는 스위치 -->
+            <Style x:Key="Switch" TargetType="CheckBox">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Border x:Name="Track" Width="38" Height="22" CornerRadius="11" Background="#E3E3E8" Padding="2">
+                                <Ellipse x:Name="Knob" Width="18" Height="18" Fill="White" HorizontalAlignment="Left">
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect Color="Black" Opacity="0.2" BlurRadius="2" ShadowDepth="1" Direction="270" />
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Track" Property="Background" Value="#34C759" />
+                                    <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 편집 영역 아래의 큰 버튼 -->
+            <Style x:Key="ActionButton" TargetType="Button">
+                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                <Setter Property="Background" Value="#F0F0F2" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Padding" Value="0,10" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="9" />
+                                <Border x:Name="Shade" Background="Black" Opacity="0" CornerRadius="9" />
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Shade" Property="Opacity" Value="0.04" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Shade" Property="Opacity" Value="0.1" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Background" Value="{StaticResource Accent}" />
+            </Style>
+
+            <!-- 작은 글자 버튼. 전각 경고의 "반각으로 바꾸기" 처럼 문장 안에 끼는 동작에 쓴다. -->
+            <Style x:Key="LinkButton" TargetType="Button">
+                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Frame" Background="#140071E3" CornerRadius="6" Padding="8,3">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Frame" Property="Background" Value="#240071E3" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 키캡. 아랫면을 두껍게 그려 눌리는 키처럼 보이게 한다. -->
+            <Style x:Key="Keycap" TargetType="Border">
+                <Setter Property="Background" Value="White" />
+                <Setter Property="BorderBrush" Value="#1F000000" />
+                <Setter Property="BorderThickness" Value="1,1,1,2" />
+                <Setter Property="CornerRadius" Value="5" />
+                <Setter Property="Padding" Value="7,3" />
+            </Style>
+
+            <!--
+                슬롯 칸. 모양은 칸의 상태(빈 칸, 채운 칸, 편집 중, 치트시트 키)에 따라
+                데이터 템플릿이 Background·BorderBrush 를 바꾸고, 여기서는 그것을 받아 그리기만 한다.
+                끌어다 놓을 자리는 DropTarget 이 파랗게 감싼다.
+            -->
+            <Style x:Key="SlotCellButton" TargetType="Button">
+                <Setter Property="Background" Value="#F5F5F7" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Border x:Name="Card" Background="{TemplateBinding Background}" CornerRadius="12" ClipToBounds="True">
+                                    <ContentPresenter Margin="12" />
+                                </Border>
+                                <!-- 테두리는 내용 위에 겹쳐 그린다. 두께가 바뀌어도 글이 앉는 자리는 그대로다. -->
+                                <Border x:Name="Outline" BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="12" IsHitTestVisible="False" />
+                                <Border x:Name="Hover" Background="Black" Opacity="0" CornerRadius="12" IsHitTestVisible="False" />
+                                <Border x:Name="DropTarget" BorderBrush="{StaticResource Accent}" BorderThickness="2"
+                                        Background="#140071E3" CornerRadius="12" Visibility="Collapsed" IsHitTestVisible="False" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Hover" Property="Opacity" Value="0.025" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Hover" Property="Opacity" Value="0.05" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border x:Name="Root">
+        <DockPanel>
+
+            <!-- ───────────── 도구 막대 ───────────── -->
+            <Grid DockPanel.Dock="Top" Height="60" Margin="20,0,8,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Width="30" Height="30" Source="{StaticResource AppIcon}" />
+                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="은선 매크로" FontSize="15" FontWeight="Bold" />
+                        <TextBlock x:Name="SubtitleText" Text="24개 슬롯 중 0개 사용 중" FontSize="11"
+                                   Foreground="{StaticResource InkTertiary}" Margin="0,1,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+
+                    <!-- 매크로패드 연결 상태 -->
+                    <Border x:Name="StatusPill" CornerRadius="13" Padding="12,6" Background="#0F000000"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="{StaticResource InkQuaternary}"
+                                     VerticalAlignment="Center" />
+                            <TextBlock x:Name="StatusText" Text="매크로패드 찾는 중" FontSize="12" FontWeight="Medium"
+                                       Foreground="{StaticResource InkSecondary}" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 매크로패드 없이도 치트시트를 여는 전역 단축키 -->
+                    <Button x:Name="HotkeyButton" Style="{StaticResource ToolbarButton}" Margin="10,0,0,0"
+                            ToolTip="치트시트를 여는 전역 단축키입니다. 눌러서 설정하세요"
+                            Click="OnHotkeyButtonClicked">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="14" Height="14">
+                                <Path Style="{StaticResource Icon}" Stroke="{StaticResource InkSecondary}"
+                                      Data="{StaticResource Icon.Command}" />
+                            </Viewbox>
+                            <TextBlock x:Name="HotkeyLabel" Text="치트 시트 커스텀 단축키 없음" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 매크로패드를 돌려 놓은 방향 -->
+                    <Border CornerRadius="8" Background="#E3E3E8" Padding="2" Margin="10,0,0,0"
+                            ToolTip="매크로패드를 돌려 놓은 방향에 맞춰 격자를 돌립니다">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="Rotation0" Style="{StaticResource Segment}" GroupName="Rotation"
+                                         Content="0°" Tag="0" Checked="OnChooseRotation" />
+                            <RadioButton x:Name="Rotation90" Style="{StaticResource Segment}" GroupName="Rotation"
+                                         Content="90°" Tag="90" Margin="2,0,0,0" Checked="OnChooseRotation" />
+                            <RadioButton x:Name="Rotation180" Style="{StaticResource Segment}" GroupName="Rotation"
+                                         Content="180°" Tag="180" Margin="2,0,0,0" Checked="OnChooseRotation" />
+                            <RadioButton x:Name="Rotation270" Style="{StaticResource Segment}" GroupName="Rotation"
+                                         Content="270°" Tag="270" Margin="2,0,0,0" Checked="OnChooseRotation" />
+                        </StackPanel>
+                    </Border>
+
+                    <!--
+                        꽂아 쓰는 PCB 쪽. 아이콘은 위에서 본 기판 윤곽이다.
+                        두 반쪽은 맨 아랫줄이 튀어나온 쪽이 반대라 그 모양을 그대로 그린다.
+                    -->
+                    <Border CornerRadius="8" Background="#E3E3E8" Padding="2" Margin="10,0,0,0"
+                            ToolTip="꽂아 쓰는 PCB 가 왼쪽 반쪽인지 오른쪽 반쪽인지 고릅니다. 펌웨어도 같은 쪽으로 구워야 합니다">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="LeftSideRadio" Style="{StaticResource Segment}" GroupName="Side"
+                                         Checked="OnChooseLeftSide">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="15" Height="12">
+                                        <Path Width="18" Height="14.4" Stretch="None" StrokeThickness="1.5" StrokeLineJoin="Round"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                              Data="M1 1.2h12v8.2h4v3.8h-16z" />
+                                    </Viewbox>
+                                    <TextBlock Text="왼쪽" Margin="5,0,0,0" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="RightSideRadio" Style="{StaticResource Segment}" GroupName="Side"
+                                         Margin="2,0,0,0" Checked="OnChooseRightSide">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="15" Height="12">
+                                        <Path Width="18" Height="14.4" Stretch="None" StrokeThickness="1.5" StrokeLineJoin="Round"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                              Data="M5 1.2h12v12h-16v-3.8h4z" />
+                                    </Viewbox>
+                                    <TextBlock Text="오른쪽" Margin="5,0,0,0" />
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 옵션. 설정을 파일로 저장하고 불러온다. -->
+                    <Button x:Name="SettingsButton" Style="{StaticResource ToolbarButton}" Margin="10,0,0,0"
+                            Width="30" Height="30" Padding="0" ToolTip="옵션"
+                            Click="OnSettingsClicked">
+                        <Viewbox Width="15" Height="15">
+                            <Path Style="{StaticResource Icon}" Stroke="{StaticResource InkSecondary}"
+                                  Data="{StaticResource Icon.Settings}" />
+                        </Viewbox>
+                        <Button.ContextMenu>
+                            <ContextMenu Style="{StaticResource Menu}" Placement="Bottom" HorizontalOffset="-16" VerticalOffset="-6">
+                                <MenuItem Style="{StaticResource MenuItem}" Header="저장하기" InputGestureText="Ctrl+S"
+                                          Tag="{StaticResource Icon.Save}" Click="OnExport" />
+                                <MenuItem Style="{StaticResource MenuItem}" Header="불러오기…" InputGestureText="Ctrl+O"
+                                          Tag="{StaticResource Icon.FolderOpen}" Click="OnImport" />
+                                <MenuItem Style="{StaticResource MenuItem}" Header="저장 위치 열기" InputGestureText="Ctrl+Shift+O"
+                                          Tag="{StaticResource Icon.FolderSearch}" Click="OnOpenSettingsFolder" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+
+                    <Rectangle Width="1" Height="20" Fill="{StaticResource Hairline}" Margin="10,0" />
+
+                    <Button Style="{StaticResource CaptionButton}" ToolTip="최소화" Click="OnMinimize">
+                        <Viewbox Width="15" Height="15">
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Minus}" />
+                        </Viewbox>
+                    </Button>
+                    <Button Style="{StaticResource CaptionButton}" ToolTip="최대화" Margin="2,0,0,0" Click="OnMaximize">
+                        <Viewbox Width="12" Height="12">
+                            <Path x:Name="MaximizeGlyph" Style="{StaticResource Icon}" Data="{StaticResource Icon.Square}" />
+                        </Viewbox>
+                    </Button>
+                    <Button Style="{StaticResource CloseCaptionButton}" ToolTip="닫기 (트레이에 남습니다)" Margin="2,0,0,0"
+                            Click="OnCloseClicked">
+                        <Viewbox Width="15" Height="15">
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Close}" />
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ───────────── 본문 ───────────── -->
+            <Grid Margin="20,4,20,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="340" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 슬롯 격자 카드 -->
+                <Border Grid.Column="0" Background="White" CornerRadius="16" Effect="{StaticResource CardShadow}" />
+                <Grid x:Name="PadCard" Grid.Column="0" Margin="22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="슬롯" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" />
+                        <TextBlock Text="클릭하여 편집 · 드래그하여 순서 변경" FontSize="12"
+                                   Foreground="{StaticResource InkTertiary}" Margin="8,2,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- 행/열은 방향에 따라 코드에서 갈아 끼운다. 칸 사이 간격 10 은 칸마다 바깥 여백 5 로 만든다. -->
+                    <ItemsControl x:Name="SlotCells" Grid.Row="1" Margin="-5,11,-5,-5">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="4" Columns="7" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button x:Name="SlotButton" Style="{StaticResource SlotCellButton}" Margin="5"
+                                        Click="OnSlotClicked"
+                                        PreviewMouseLeftButtonDown="OnSlotMouseDown"
+                                        PreviewMouseMove="OnSlotMouseMove"
+                                        AllowDrop="True"
+                                        DragEnter="OnSlotDragOver" DragOver="OnSlotDragOver"
+                                        DragLeave="OnSlotDragLeave" Drop="OnSlotDrop">
+                                    <Grid>
+                                        <!-- 문장·단축키 슬롯 -->
+                                        <Grid x:Name="SlotContent">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+
+                                            <DockPanel>
+                                                <!-- 전각 문자가 섞인 문장. 받는 쪽에서 글꼴이 달라 보인다. -->
+                                                <Ellipse x:Name="FullWidthMark" DockPanel.Dock="Right" Width="7" Height="7"
+                                                         Fill="#FF9F0A" VerticalAlignment="Center" Visibility="Collapsed"
+                                                         ToolTip="전각 문자가 섞여 있습니다. 받는 프로그램에서 글꼴과 간격이 달라 보입니다" />
+                                                <TextBlock x:Name="SlotNumber" Text="{Binding Number}" FontSize="11" FontWeight="Medium"
+                                                           Foreground="{StaticResource InkTertiary}" />
+                                            </DockPanel>
+
+                                            <TextBlock x:Name="SlotLabel" Grid.Row="1" Text="{Binding Label}" FontSize="14"
+                                                       FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+
+                                            <DockPanel Grid.Row="2" Margin="0,6,0,0" LastChildFill="True">
+                                                <Border x:Name="EnterKeycap" DockPanel.Dock="Right" Style="{StaticResource Keycap}"
+                                                        VerticalAlignment="Bottom" Margin="8,0,0,0" Visibility="Collapsed"
+                                                        ToolTip="삽입 후 Enter">
+                                                    <Viewbox Width="12" Height="12">
+                                                        <Path Style="{StaticResource Icon}" Stroke="{StaticResource InkSecondary}"
+                                                              Data="{StaticResource Icon.CornerDownLeft}" />
+                                                    </Viewbox>
+                                                </Border>
+
+                                                <!-- 키 조합 칸은 문장 대신 키캡을 늘어놓는다. -->
+                                                <ItemsControl x:Name="SlotKeys" DockPanel.Dock="Top" ItemsSource="{Binding Keys}"
+                                                              Visibility="Collapsed" ToolTip="키 조합을 눌러 주는 칸입니다">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="White" BorderBrush="#1F000000" BorderThickness="1"
+                                                                    CornerRadius="4" Padding="6,1" Margin="0,0,4,4">
+                                                                <TextBlock Text="{Binding}" FontSize="11" FontWeight="Medium"
+                                                                           Foreground="{StaticResource InkSecondary}" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <TextBlock x:Name="SlotPreview" Text="{Binding Preview}" FontSize="11"
+                                                           Foreground="{StaticResource InkSecondary}" LineHeight="15"
+                                                           LineStackingStrategy="BlockLineHeight"
+                                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </Grid>
+
+                                        <!-- 치트시트 레이어 키 -->
+                                        <DockPanel x:Name="CheatContent" Visibility="Collapsed">
+                                            <Viewbox DockPanel.Dock="Top" Width="16" Height="16" HorizontalAlignment="Left">
+                                                <Path Style="{StaticResource Icon}" Stroke="#248A3D" Data="{StaticResource Icon.BookOpen}" />
+                                            </Viewbox>
+                                            <StackPanel VerticalAlignment="Bottom">
+                                                <TextBlock Text="치트시트" FontSize="14" FontWeight="SemiBold" Foreground="#1E7A36" />
+                                                <TextBlock Text="누르면 목록 표시" FontSize="11" Foreground="#AA248A3D" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Grid>
+                                </Button>
+
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding AppendEnter}" Value="True">
+                                        <Setter TargetName="EnterKeycap" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsShortcut}" Value="True">
+                                        <Setter TargetName="SlotKeys" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="SlotPreview" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding HasFullWidth}" Value="True">
+                                        <Setter TargetName="FullWidthMark" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Label}" Value="">
+                                        <Setter TargetName="SlotLabel" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+
+                                    <!-- 빈 칸은 더 옅다. 아직 아무 일도 하지 않는 키라는 뜻이다. -->
+                                    <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                        <Setter TargetName="SlotButton" Property="Background" Value="#FAFAFC" />
+                                        <Setter TargetName="SlotButton" Property="BorderBrush" Value="#0D000000" />
+                                        <Setter TargetName="SlotButton" Property="BorderThickness" Value="1" />
+                                        <Setter TargetName="SlotNumber" Property="Foreground" Value="#C7C7CC" />
+                                    </DataTrigger>
+
+                                    <!-- 지금 편집 중인 칸 -->
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter TargetName="SlotButton" Property="Background" Value="#EAF3FF" />
+                                        <Setter TargetName="SlotButton" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                        <Setter TargetName="SlotButton" Property="BorderThickness" Value="2" />
+                                        <Setter TargetName="SlotNumber" Property="Foreground" Value="{StaticResource Accent}" />
+                                    </DataTrigger>
+
+                                    <!-- 키가 없는 자리. 칸은 차지하되 보이지 않아야 실물과 모양이 맞는다. -->
+                                    <DataTrigger Binding="{Binding Kind}" Value="Blank">
+                                        <Setter TargetName="SlotButton" Property="Visibility" Value="Hidden" />
+                                    </DataTrigger>
+
+                                    <!-- 치트시트 레이어 키. 고칠 내용이 없으니 눌러도 반응하지 않는다. -->
+                                    <DataTrigger Binding="{Binding Kind}" Value="CheatKey">
+                                        <Setter TargetName="SlotButton" Property="Background" Value="#E9F8EF" />
+                                        <Setter TargetName="SlotButton" Property="BorderThickness" Value="0" />
+                                        <Setter TargetName="SlotButton" Property="Cursor" Value="Arrow" />
+                                        <Setter TargetName="SlotContent" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="CheatContent" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!--
+                        늘 떠 있는 메모. 치트시트 아래에도 같은 내용이 뜬다.
+                        적은 만큼 자라되 슬롯 격자를 덮지 않도록 카드 높이의 일부까지만 자라고 그 뒤로는 스크롤한다.
+                    -->
+                    <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                        <TextBlock Text="메모" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource InkSecondary}" />
+                        <Border Background="{StaticResource Field}" CornerRadius="10" MinHeight="56" Margin="0,8,0,0">
+                            <Grid>
+                                <TextBlock x:Name="MemoPlaceholder" Text="메모를 남겨보세요. 치트시트 아래에도 그대로 보입니다"
+                                           FontSize="13" Foreground="{StaticResource InkQuaternary}"
+                                           Margin="12,10" IsHitTestVisible="False" />
+                                <TextBox x:Name="MemoBox"
+                                         Background="Transparent" BorderThickness="0"
+                                         FontSize="13" Padding="10,8"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         VerticalScrollBarVisibility="Auto"
+                                         CaretBrush="{StaticResource Accent}"
+                                         TextChanged="OnMemoChanged"
+                                         LostFocus="OnMemoCommitted" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 편집 카드 -->
+                <Border Grid.Column="2" Background="White" CornerRadius="16" Effect="{StaticResource CardShadow}" />
+                <DockPanel Grid.Column="2" Margin="22" LastChildFill="True">
+
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock x:Name="SlotTitle" Text="슬롯을 선택하세요" FontSize="22" FontWeight="Bold" />
+                        <TextBlock x:Name="SlotMeta" Text="왼쪽 격자에서 칸을 누르세요" FontSize="12"
+                                   Foreground="{StaticResource InkTertiary}" Margin="0,4,0,0" />
+                    </StackPanel>
 
                     <!-- 이 칸이 문장을 넣을지 키 조합을 누를지 고른다. -->
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <RadioButton x:Name="TextModeRadio" Content="문장" GroupName="SlotAction"
-                                     IsChecked="True" IsEnabled="False" VerticalAlignment="Center"
-                                     Checked="OnActionModeChanged" />
-                        <RadioButton x:Name="ShortcutModeRadio" Content="단축키" GroupName="SlotAction"
-                                     Margin="12,0,0,0" IsEnabled="False" VerticalAlignment="Center"
-                                     Checked="OnActionModeChanged" />
-                    </StackPanel>
-                </DockPanel>
+                    <Border DockPanel.Dock="Top" Margin="0,20,0,0" CornerRadius="9" Background="#EEEEF0" Padding="2">
+                        <UniformGrid Columns="2">
+                            <RadioButton x:Name="TextModeRadio" Style="{StaticResource TypeSegment}" GroupName="SlotAction"
+                                         IsChecked="True" IsEnabled="False" Checked="OnActionModeChanged">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="14" Height="14">
+                                        <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Type}" />
+                                    </Viewbox>
+                                    <TextBlock Text="문장" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="ShortcutModeRadio" Style="{StaticResource TypeSegment}" GroupName="SlotAction"
+                                         Margin="2,0,0,0" IsEnabled="False" Checked="OnActionModeChanged">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="14" Height="14">
+                                        <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Keyboard}" />
+                                    </Viewbox>
+                                    <TextBlock Text="단축키" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </RadioButton>
+                        </UniformGrid>
+                    </Border>
 
-                <Grid Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="10" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="라벨 (치트시트에 표시)" FontSize="11" Foreground="#5F5E5A" Margin="0,0,0,4" />
-                        <TextBox x:Name="LabelBox" Height="30" VerticalContentAlignment="Center" Padding="8,0" IsEnabled="False"
+                    <!-- 라벨 -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,20,0,0">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="치트시트에 표시됨" FontSize="11"
+                                       Foreground="{StaticResource InkQuaternary}" VerticalAlignment="Center" />
+                            <TextBlock Text="라벨" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource InkSecondary}" />
+                        </DockPanel>
+                        <TextBox x:Name="LabelBox" Style="{StaticResource FieldBox}" Margin="0,8,0,0" IsEnabled="False"
                                  TextChanged="OnEditorTextChanged" />
                     </StackPanel>
 
-                    <StackPanel x:Name="TextPane" Grid.Column="2">
-                        <TextBlock Text="삽입될 문장" FontSize="11" Foreground="#5F5E5A" Margin="0,0,0,4" />
+                    <!-- 삽입될 문장 -->
+                    <StackPanel x:Name="TextPane" DockPanel.Dock="Top" Margin="0,20,0,0">
+                        <DockPanel>
+                            <TextBlock x:Name="TextCounter" DockPanel.Dock="Right" Text="0 / 2000" FontSize="11"
+                                       Foreground="{StaticResource InkQuaternary}" VerticalAlignment="Center" />
+                            <TextBlock Text="삽입될 문장" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource InkSecondary}" />
+                        </DockPanel>
                         <TextBox x:Name="TextBoxContent"
-                                 Height="110"
+                                 Style="{StaticResource FieldBox}"
+                                 Margin="0,8,0,0"
+                                 Height="150"
+                                 MaxLength="2000"
                                  AcceptsReturn="True"
                                  AcceptsTab="True"
                                  TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto"
-                                 FontFamily="Consolas, D2Coding, monospace"
-                                 Padding="8,6"
+                                 VerticalContentAlignment="Top"
                                  IsEnabled="False"
                                  TextChanged="OnEditorTextChanged" />
 
@@ -134,118 +711,74 @@
                             전각 영문·기호·띄어쓰기가 섞여 있을 때만 뜬다.
                             불러온 값과 붙여넣은 값은 사용자가 고른 것일 수 있어 저절로 바꾸지 않고 여기서 묻는다.
                         -->
-                        <DockPanel x:Name="FullWidthWarning" Margin="0,6,0,0" Visibility="Collapsed">
-                            <Button DockPanel.Dock="Right" Content="반각으로 바꾸기" Padding="10,2" Height="24"
-                                    Click="OnConvertToHalfWidth" />
-                            <TextBlock x:Name="FullWidthWarningText" FontSize="11" Foreground="#A32D2D"
-                                       VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0" />
+                        <DockPanel x:Name="FullWidthWarning" Margin="0,8,0,0" Visibility="Collapsed">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="반각으로 바꾸기"
+                                    VerticalAlignment="Top" Click="OnConvertToHalfWidth" />
+                            <TextBlock x:Name="FullWidthWarningText" FontSize="11" Foreground="#C93400"
+                                       TextWrapping="Wrap" Margin="0,2,8,0" />
                         </DockPanel>
                     </StackPanel>
 
-                    <StackPanel x:Name="ShortcutPane" Grid.Column="2" Visibility="Collapsed">
-                        <TextBlock Text="눌러 줄 키 조합" FontSize="11" Foreground="#5F5E5A" Margin="0,0,0,4" />
-                        <Button x:Name="SlotShortcutButton"
-                                Content="조합 없음"
-                                Height="36" Width="220" HorizontalAlignment="Left"
-                                Click="OnSlotShortcutClicked" />
+                    <!-- 눌러 줄 키 조합 -->
+                    <StackPanel x:Name="ShortcutPane" DockPanel.Dock="Top" Margin="0,20,0,0" Visibility="Collapsed">
+                        <TextBlock Text="눌러 줄 키 조합" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource InkSecondary}" />
+                        <Button x:Name="SlotShortcutButton" Style="{StaticResource ActionButton}" Margin="0,8,0,0"
+                                Background="{StaticResource Field}" FontWeight="Medium" Padding="0,12"
+                                Content="조합 없음" Click="OnSlotShortcutClicked" />
                         <TextBlock Text="버튼을 누른 뒤 원하는 조합을 누르세요. Delete 로 해제, Esc 로 취소"
-                                   FontSize="11" Foreground="#888780" Margin="0,8,0,0" TextWrapping="Wrap" />
+                                   FontSize="11" Foreground="{StaticResource InkTertiary}" Margin="0,8,0,0" TextWrapping="Wrap" />
                         <TextBlock Text="이 슬롯은 문장 대신 그 키를 그대로 눌러 줍니다. 예: Ctrl + Shift + T"
-                                   FontSize="11" Foreground="#888780" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                   FontSize="11" Foreground="{StaticResource InkTertiary}" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
-                </Grid>
 
-                <DockPanel>
-                    <CheckBox x:Name="AppendEnterBox" Content="삽입 후 Enter" VerticalAlignment="Center" IsEnabled="False" /><!-- 키 조합 모드에서는 의미가 없어 숨긴다 -->
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock x:Name="HintText" Text="" FontSize="12" Foreground="#5F5E5A"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <Button x:Name="TestButton" Content="테스트 삽입" Width="110" Height="30" Margin="0,0,8,0"
-                                IsEnabled="False" Click="OnTestInject" />
-                        <Button x:Name="SaveButton" Content="저장" Width="80" Height="30"
-                                IsEnabled="False" Click="OnSave" />
-                    </StackPanel>
-                </DockPanel>
-            </StackPanel>
-        </Border>
-
-        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-            <ItemsControl x:Name="SlotCells">
-                <!-- 행/열은 방향에 따라 코드에서 갈아 끼운다. -->
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Rows="4" Columns="6" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Button x:Name="SlotButton" Margin="4" Height="96" Click="OnSlotClicked"
-                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                                Background="White" BorderBrush="#E4E4DE" BorderThickness="1">
-                                <StackPanel Margin="4">
-                                    <!--
-                                        표시는 번호와 같은 줄에 오른쪽부터 쌓는다.
-                                        칸 위에 겹쳐 놓으면 표시가 늘어날 때마다 서로 부딪힌다.
-                                    -->
-                                    <DockPanel>
-                                        <!-- 삽입 후 Enter 가 켜진 슬롯 표시. 꺼져 있으면 숨긴다. -->
-                                        <Ellipse x:Name="EnterDot" DockPanel.Dock="Right"
-                                                 Width="7" Height="7"
-                                                 Fill="#1A1A18"
-                                                 VerticalAlignment="Center"
-                                                 Margin="5,0,0,0"
-                                                 Visibility="Collapsed"
-                                                 ToolTip="삽입 후 Enter" />
-
-                                        <!-- 키를 눌러 주는 칸 표시. 글이 아니라 키가 나간다는 뜻이다. -->
-                                        <TextBlock x:Name="SlotShortcutMark" DockPanel.Dock="Right"
-                                                   Text="&#x2328;" FontSize="12" Foreground="#5F5E5A"
-                                                   FontFamily="Segoe UI Symbol, Segoe UI"
-                                                   ToolTip="키 조합을 눌러 주는 칸입니다"
-                                                   Visibility="Collapsed" />
-                                        <TextBlock x:Name="SlotNumber" Text="{Binding Number}" FontSize="10" Foreground="#888780" />
-                                    </DockPanel>
-                                    <TextBlock x:Name="SlotLabel" Text="{Binding Label}" FontSize="12" Margin="0,2,0,0"
-                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="32" />
-
-                                    <!-- 실제 삽입될 문장. 칸을 넘치면 잘라서 보여준다. -->
-                                    <TextBlock Text="{Binding Preview}" FontSize="10" Foreground="#9C9C96"
-                                               Margin="0,3,0,0" LineHeight="13"
-                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="39" />
+                    <!-- 삽입 후 Enter. 키 조합 모드에서는 의미가 없어 숨긴다. -->
+                    <Border x:Name="EnterOption" DockPanel.Dock="Top" Margin="0,20,0,0" CornerRadius="10"
+                            Background="{StaticResource Field}" Padding="14,11">
+                        <DockPanel>
+                            <CheckBox x:Name="AppendEnterBox" DockPanel.Dock="Right" Style="{StaticResource Switch}"
+                                      VerticalAlignment="Center" IsEnabled="False" />
+                            <StackPanel Margin="0,0,12,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="삽입 후 Enter" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                    <Border Style="{StaticResource Keycap}" Margin="6,0,0,0">
+                                        <Viewbox Width="12" Height="12">
+                                            <Path Style="{StaticResource Icon}" Stroke="{StaticResource InkSecondary}"
+                                                  Data="{StaticResource Icon.CornerDownLeft}" />
+                                        </Viewbox>
+                                    </Border>
                                 </StackPanel>
+                                <TextBlock Text="문장 입력 후 자동으로 줄바꿈" FontSize="11"
+                                           Foreground="{StaticResource InkTertiary}" Margin="0,1,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- 저장·테스트 -->
+                    <Grid DockPanel.Dock="Bottom">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="TestButton" Style="{StaticResource ActionButton}" IsEnabled="False" Click="OnTestInject">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="13" Height="13">
+                                    <Path Style="{StaticResource Icon}" Stroke="{StaticResource Ink}" Data="{StaticResource Icon.Play}" />
+                                </Viewbox>
+                                <TextBlock x:Name="TestButtonLabel" Text="테스트 삽입" Margin="6,0,0,0" />
+                            </StackPanel>
                         </Button>
+                        <Button x:Name="SaveButton" Grid.Column="2" Style="{StaticResource PrimaryButton}"
+                                Content="저장" IsEnabled="False" Click="OnSave" />
+                    </Grid>
 
-                        <DataTemplate.Triggers>
-                            <DataTrigger Binding="{Binding IsEmpty}" Value="True">
-                                <Setter Property="Opacity" Value="0.55" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding AppendEnter}" Value="True">
-                                <Setter TargetName="EnterDot" Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding IsShortcut}" Value="True">
-                                <Setter TargetName="SlotShortcutMark" Property="Visibility" Value="Visible" />
-                            </DataTrigger>
+                    <!-- 진행 상황과 결과를 알리는 한 줄 -->
+                    <TextBlock x:Name="HintText" DockPanel.Dock="Bottom" Text="" FontSize="12"
+                               Foreground="{StaticResource InkTertiary}" TextWrapping="Wrap" Margin="0,0,0,10" />
 
-                            <!-- 키가 없는 자리. 칸은 차지하되 보이지 않아야 실물과 모양이 맞는다. -->
-                            <DataTrigger Binding="{Binding Kind}" Value="Blank">
-                                <Setter TargetName="SlotButton" Property="Visibility" Value="Hidden" />
-                            </DataTrigger>
-
-                            <!-- 치트시트 레이어 키. 고칠 내용이 없으니 눌러도 반응하지 않는다. -->
-                            <DataTrigger Binding="{Binding Kind}" Value="CheatKey">
-                                <Setter Property="Opacity" Value="1" />
-                                <Setter TargetName="SlotButton" Property="Background" Value="#E1F5EE" />
-                                <Setter TargetName="SlotButton" Property="BorderBrush" Value="#9FE1CB" />
-                                <Setter TargetName="SlotButton" Property="Cursor" Value="Arrow" />
-                                <Setter TargetName="SlotNumber" Property="Visibility" Value="Collapsed" />
-                                <Setter TargetName="SlotLabel" Property="Foreground" Value="#0F6E56" />
-                            </DataTrigger>
-                        </DataTemplate.Triggers>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
-
-    </DockPanel>
+                    <Border />
+                </DockPanel>
+            </Grid>
+        </DockPanel>
+    </Border>
 </Window>

@@ -17,9 +17,27 @@ public partial class OverlayWindow : Window
 {
     private const int HotkeyId = 1;
 
+    /// <summary>떠 있는 동안만 잡는 Esc. 닫는 데만 쓴다.</summary>
+    private const int EscapeHotkeyId = 2;
+    private const uint VirtualKeyEscape = 0x1B;
+
     private nint _handle;
     private GridRotation? _appliedRotation;
     private bool _hotkeyRegistered;
+    private bool _escapeRegistered;
+
+    /// <summary>
+    /// 매크로패드의 레이어 키를 누르고 있어서 떠 있는가. 치트시트 키 칸에 "누르는 중"이 붙는다.
+    /// 단축키로 열어 둔 것이면 거짓이다.
+    /// </summary>
+    public static readonly DependencyProperty IsHeldProperty =
+        DependencyProperty.Register(nameof(IsHeld), typeof(bool), typeof(OverlayWindow), new PropertyMetadata(false));
+
+    public bool IsHeld
+    {
+        get => (bool)GetValue(IsHeldProperty);
+        set => SetValue(IsHeldProperty, value);
+    }
 
     public OverlayWindow()
     {
@@ -51,10 +69,6 @@ public partial class OverlayWindow : Window
         Hide();
     }
 
-    /// <summary>
-    /// 격자를 다시 그린다. 매크로패드를 돌려 놓았으면 화면도 같은 방향으로 눕는다.
-    /// 슬롯 번호는 그대로고 늘어놓는 순서만 바뀐다.
-    /// </summary>
     /// <summary>관리창에서 적은 메모를 아래에 깐다. 비어 있으면 자리째 접는다.</summary>
     public void UpdateMemo(string memo)
     {
@@ -67,8 +81,14 @@ public partial class OverlayWindow : Window
         UpdateLayout();
     }
 
+    /// <summary>
+    /// 격자를 다시 그린다. 매크로패드를 돌려 놓았으면 화면도 같은 방향으로 눕는다.
+    /// 슬롯 번호는 그대로고 늘어놓는 순서만 바뀐다.
+    /// </summary>
     public void UpdateSlots(IReadOnlyList<Slot> slots, GridRotation rotation, KeyboardSide side)
     {
+        MetaText.Text = $"{slots.Count(slot => !slot.IsEmpty)}개 슬롯";
+
         // 방향이 바뀔 때만 판을 갈아 끼운다.
         // 이 메서드는 레이어 키를 누를 때마다 불리는데, 매번 새 템플릿을 물리면
         // 격자 전체가 다시 만들어져 표시가 굼떠진다.
@@ -92,12 +112,21 @@ public partial class OverlayWindow : Window
     /// 배치를 먼저 하고 마지막에 보이게 하는 순서가 중요하다.
     /// 띄우고 나서 옮기면 이전 위치에 한 번 나타났다가 이동하는 게 눈에 보인다.
     /// </summary>
-    public void ShowOverlay(nint anchorWindow)
+    /// <param name="held">매크로패드의 레이어 키를 누르고 있어서 뜨는 것인가. 단축키로 열면 거짓.</param>
+    public void ShowOverlay(nint anchorWindow, bool held)
     {
         if (_handle == 0)
             return;
 
+        IsHeld = held;
         CenterOnMonitorOf(anchorWindow);
+
+        // 떠 있는 동안만 Esc 를 잡는다. 이 창은 포커스를 받지 않으므로 키 입력을 직접 받을 수 없다.
+        // 다른 앱이 이미 Esc 를 잡고 있으면 안내도 뺀다. 안 되는 일을 된다고 적어 두지 않는다.
+        if (!_escapeRegistered)
+            _escapeRegistered = NativeMethods.RegisterHotKey(_handle, EscapeHotkeyId, 0, VirtualKeyEscape);
+
+        EscHint.Visibility = _escapeRegistered ? Visibility.Visible : Visibility.Collapsed;
 
         if (!IsVisible)
         {
@@ -108,6 +137,13 @@ public partial class OverlayWindow : Window
 
     public void HideOverlay()
     {
+        // 숨으면 Esc 를 곧바로 돌려준다. 붙잡고 있으면 다른 앱에서 Esc 가 먹지 않는다.
+        if (_escapeRegistered)
+        {
+            NativeMethods.UnregisterHotKey(_handle, EscapeHotkeyId);
+            _escapeRegistered = false;
+        }
+
         if (IsVisible)
             Hide();
     }
@@ -120,6 +156,9 @@ public partial class OverlayWindow : Window
 
     /// <summary>등록해 둔 전역 단축키가 눌렸을 때.</summary>
     public event EventHandler? HotkeyPressed;
+
+    /// <summary>떠 있는 동안 Esc 가 눌렸을 때. 닫을지는 띄운 쪽이 정한다(단축키로 열어 둔 상태도 풀어야 한다).</summary>
+    public event EventHandler? CloseRequested;
 
     /// <summary>
     /// 치트시트를 여는 전역 단축키를 등록한다. 이전에 등록한 것은 풀린다.
@@ -178,6 +217,12 @@ public partial class OverlayWindow : Window
             _handle, 0, info.Work.Left, info.Work.Top, 0, 0,
             NativeMethods.SwpNoSize | NativeMethods.SwpNoZOrder | NativeMethods.SwpNoActivate);
 
+        // 판이 화면보다 크면 비율 그대로 줄인다. 작업 영역은 물리 픽셀이라 이 모니터의 배율로 나눈다.
+        // 둘레의 투명한 그림자 여백은 빼고 판에만 준다.
+        DpiScale dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
+        Scaler.MaxWidth = Math.Max(200, (info.Work.Width / dpi.DpiScaleX * 0.96) - 80);
+        Scaler.MaxHeight = Math.Max(150, (info.Work.Height / dpi.DpiScaleY * 0.96) - 80);
+
         UpdateLayout();
 
         if (!NativeMethods.GetWindowRect(_handle, out NativeMethods.Rect bounds))
@@ -228,6 +273,13 @@ public partial class OverlayWindow : Window
         {
             handled = true;
             HotkeyPressed?.Invoke(this, EventArgs.Empty);
+            return 0;
+        }
+
+        if ((uint)msg == NativeMethods.WmHotkey && wParam == EscapeHotkeyId)
+        {
+            handled = true;
+            CloseRequested?.Invoke(this, EventArgs.Empty);
             return 0;
         }
 
