@@ -75,8 +75,49 @@ public partial class ManagerWindow : Window
         DataObject.AddPastingHandler(LabelBox, OnEditorPasting);
         DataObject.AddPastingHandler(TextBoxContent, OnEditorPasting);
 
-        // 메모는 적은 만큼 자라되 슬롯 격자를 덮지 않게 카드 높이의 일부까지만 자란다. 그 뒤로는 스크롤이다.
-        PadCard.SizeChanged += (_, _) => MemoBox.MaxHeight = Math.Max(56, PadCard.ActualHeight * 0.3);
+        PadCard.SizeChanged += (_, _) => FitSlotGrid();
+        SlotScroll.SizeChanged += (_, _) => FitSlotGrid();
+    }
+
+    // --- 슬롯 칸이 지켜야 할 높이 ---
+    //
+    // 90°·270° 로 세우면 격자가 7행이 되어 칸이 금방 낮아진다. 그 위에 메모까지 길어지면
+    // 칸에 번호만 남고 무엇을 등록했는지 보이지 않는다. 칸마다 번호·라벨·문장 한 줄은 늘 보이게 한다.
+
+    /// <summary>
+    /// 칸 하나의 가장 낮은 높이. 안쪽 여백 위아래 12 + 번호 16 + 간격 6 + 라벨 21 + 간격 6 + 마지막 줄 23.
+    /// 마지막 줄은 문장이면 한 줄(15)이고, 키 조합이면 그보다 높은 키캡(23)이다. 높은 쪽에 맞춘다.
+    /// </summary>
+    private const double MinCellHeight = 96;
+
+    /// <summary>칸 사이 간격. 칸마다 바깥 여백 5 씩이다.</summary>
+    private const double CellGap = 10;
+
+    /// <summary>메모 상자가 줄어들 수 있는 가장 낮은 높이. 적어도 두어 줄은 보인다.</summary>
+    private const double MinMemoHeight = 56;
+
+    /// <summary>
+    /// 메모가 슬롯 칸을 최소 높이 아래로 누르지 못하게 메모의 키를 묶고,
+    /// 창이 그보다도 낮으면 격자가 최소 높이를 지킨 채 스크롤되게 한다.
+    /// </summary>
+    private void FitSlotGrid()
+    {
+        if (!IsLoaded && PadCard.ActualHeight <= 0)
+            return;
+
+        int rows = SlotGrid.SizeFor(_store.Rotation).Rows;
+        double gridMinimum = rows * (MinCellHeight + CellGap);
+
+        // 격자 영역은 카드에서 머리글과 메모 영역을 뺀 나머지다. 격자의 위아래 여백(위 11, 아래 -5)도 친다.
+        double memoChrome = Math.Max(0, MemoSection.ActualHeight - MemoBox.ActualHeight);
+        double roomForMemo = PadCard.ActualHeight - PadHeader.ActualHeight - (11 - 5) - gridMinimum - memoChrome;
+
+        // 넉넉해도 카드의 30% 를 넘게 자라지는 않는다. 격자가 주인공이다.
+        MemoBox.MaxHeight = Math.Max(MinMemoHeight, Math.Min(PadCard.ActualHeight * 0.3, roomForMemo));
+
+        // 자리가 넉넉하면 화면을 꽉 채우고, 모자라면 최소 높이를 지키고 스크롤한다.
+        // ViewportHeight 는 크기가 바뀐 직후엔 아직 예전 값이다. 가로 스크롤이 없어 실제 높이가 곧 보이는 높이다.
+        SlotCells.Height = Math.Max(SlotScroll.ActualHeight, gridMinimum);
     }
 
     // --- 창 테두리 ---
@@ -304,6 +345,9 @@ public partial class ManagerWindow : Window
             (int rows, int columns) = SlotGrid.SizeFor(rotation);
             SlotCells.ItemsPanel = SlotGridTemplate.For(rows, columns);
             _appliedRotation = rotation;
+
+            // 행 수가 바뀌면 칸이 지켜야 할 높이도 바뀐다.
+            FitSlotGrid();
         }
 
         SlotCells.ItemsSource = SlotGrid.Cells(rotation, _store.Side)

@@ -475,14 +475,47 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel Orientation="Horizontal">
+                    <!-- 이 카드 안의 스크롤 막대(슬롯 격자, 메모)는 가늘게 그린다. -->
+                    <Grid.Resources>
+                        <Style TargetType="ScrollBar">
+                            <Setter Property="Width" Value="6" />
+                            <Setter Property="MinWidth" Value="6" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ScrollBar">
+                                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                            <Track.Thumb>
+                                                <Thumb>
+                                                    <Thumb.Template>
+                                                        <ControlTemplate TargetType="Thumb">
+                                                            <Border Background="#33000000" CornerRadius="3" />
+                                                        </ControlTemplate>
+                                                    </Thumb.Template>
+                                                </Thumb>
+                                            </Track.Thumb>
+                                        </Track>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Grid.Resources>
+
+                    <StackPanel x:Name="PadHeader" Orientation="Horizontal">
                         <TextBlock Text="슬롯" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" />
                         <TextBlock Text="클릭하여 편집 · 드래그하여 순서 변경" FontSize="12"
                                    Foreground="{StaticResource InkTertiary}" Margin="8,2,0,0" VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <!-- 행/열은 방향에 따라 코드에서 갈아 끼운다. 칸 사이 간격 10 은 칸마다 바깥 여백 5 로 만든다. -->
-                    <ItemsControl x:Name="SlotCells" Grid.Row="1" Margin="-5,11,-5,-5">
+                    <!--
+                        행/열은 방향에 따라 코드에서 갈아 끼운다. 칸 사이 간격 10 은 칸마다 바깥 여백 5 로 만든다.
+                        칸은 번호·라벨·문장 한 줄이 보이는 높이 아래로 줄지 않는다(FitSlotGrid).
+                        자리가 그보다 모자라면 격자가 그 높이를 지킨 채 스크롤된다.
+                    -->
+                    <ScrollViewer x:Name="SlotScroll" Grid.Row="1" Margin="-5,11,-5,-5"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  Focusable="False">
+                    <ItemsControl x:Name="SlotCells" VerticalAlignment="Top">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <UniformGrid Rows="4" Columns="7" />
@@ -616,12 +649,13 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    </ScrollViewer>
 
                     <!--
                         늘 떠 있는 메모. 치트시트 아래에도 같은 내용이 뜬다.
-                        적은 만큼 자라되 슬롯 격자를 덮지 않도록 카드 높이의 일부까지만 자라고 그 뒤로는 스크롤한다.
+                        적은 만큼 자라되 슬롯 칸이 최소 높이 아래로 눌리기 전에 멈추고, 그 뒤로는 메모 안에서 스크롤한다.
                     -->
-                    <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                    <StackPanel x:Name="MemoSection" Grid.Row="2" Margin="0,16,0,0">
                         <TextBlock Text="메모" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource InkSecondary}" />
                         <Border Background="{StaticResource Field}" CornerRadius="10" MinHeight="56" Margin="0,8,0,0">
                             <Grid>
