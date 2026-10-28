@@ -113,4 +113,38 @@ public class UpdatePlanTests
     {
         Assert.Equal("MacroTyper-win-x64-standalone.exe", UpdatePlan.AssetName);
     }
+
+    /// <summary>
+    /// 발행자 인증서(codeyoma-publisher.crt)의 지문. 이 값이 어긋나면 서명 없이 나간 버전을 깐 사람은
+    /// 서명된 다음 버전을 영영 자동으로 받지 못한다. v0.2.4 exe 의 서명에서 읽은 값과 같다.
+    /// </summary>
+    [Fact]
+    public void PublisherThumbprintIsFrozen()
+    {
+        Assert.Equal(
+            "08BC97F9DA766A65D8524AE798391CF9B6965E248C58555B30B88DA0C2482DF2",
+            UpdatePlan.PublisherThumbprint);
+    }
+
+    /// <summary>GetCertHashString 과 같은 형식이어야 문자열 비교가 맞는다. SHA256 은 16진수 64자다.</summary>
+    [Fact]
+    public void PublisherThumbprintIsUppercaseSha256Hex()
+    {
+        Assert.Matches("^[0-9A-F]{64}$", UpdatePlan.PublisherThumbprint);
+    }
+
+    [Fact]
+    public void ExpectedThumbprint_UsesRunningSignatureWhenThereIsOne()
+    {
+        Assert.Equal("ABCD", UpdatePlan.ExpectedThumbprint("ABCD"));
+    }
+
+    /// <summary>서명 없이 나간 버전도 서명된 다음 버전을 받을 수 있어야 한다.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void ExpectedThumbprint_FallsBackToPublisherWhenRunningExeIsUnsigned(string? running)
+    {
+        Assert.Equal(UpdatePlan.PublisherThumbprint, UpdatePlan.ExpectedThumbprint(running));
+    }
 }

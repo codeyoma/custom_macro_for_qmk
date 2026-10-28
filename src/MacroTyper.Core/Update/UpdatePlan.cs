@@ -14,6 +14,23 @@ public static class UpdatePlan
     /// </summary>
     public const string AssetName = "MacroTyper-win-x64-standalone.exe";
 
+    /// <summary>
+    /// 릴리즈 exe 에 서명하는 인증서(codeyoma-publisher.crt)의 SHA256 지문.
+    ///
+    /// 받은 exe 는 원래 "지금 도는 exe 와 같은 인증서로 서명되었는가"로 대조한다.
+    /// 그런데 서명 키가 없는 곳에서 낸 릴리즈(0.3.0)는 서명 없이 나갔고, 그걸 깐 사람은
+    /// 대조할 기준이 없어 다음 업데이트를 영영 자동으로 받지 못하게 된다.
+    /// 그래서 지금 도는 exe 에 서명이 없으면 이 값을 기준으로 삼는다.
+    ///
+    /// 인증서를 바꾸지 않는 한 이 값도 바꾸지 않는다. 대문자 16진수, 구분자 없음
+    /// (X509Certificate.GetCertHashString 의 형식)이어야 비교가 맞는다.
+    /// </summary>
+    public const string PublisherThumbprint = "08BC97F9DA766A65D8524AE798391CF9B6965E248C58555B30B88DA0C2482DF2";
+
+    /// <summary>받은 exe 의 서명 지문을 무엇과 대조할지. 지금 도는 exe 에 서명이 없으면 발행자 지문이다.</summary>
+    public static string ExpectedThumbprint(string? runningThumbprint) =>
+        string.IsNullOrEmpty(runningThumbprint) ? PublisherThumbprint : runningThumbprint;
+
     public static UpdateOffer? Decide(Version current, AppRelease? release)
     {
         if (release is null)

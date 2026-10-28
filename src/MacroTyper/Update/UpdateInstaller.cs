@@ -85,14 +85,9 @@ internal static class UpdateInstaller
     /// </summary>
     private static UpdateResult? Verify(string executable, string download)
     {
-        string? expected = Authenticode.Thumbprint(executable);
-
-        if (expected is null)
-        {
-            return new UpdateResult(
-                UpdateOutcome.SignatureMismatch,
-                "지금 실행 중인 파일에 서명이 없어 새 파일과 대조할 수 없습니다.");
-        }
+        // 지금 도는 exe 가 서명 없이 나간 릴리즈면 코드에 박아 둔 발행자 지문을 기준으로 삼는다.
+        // 그러지 않으면 그 버전을 깐 사람은 다음 업데이트부터 영영 손으로 받아야 한다.
+        string expected = UpdatePlan.ExpectedThumbprint(Authenticode.Thumbprint(executable));
 
         SignatureState state = Authenticode.Check(download);
 
