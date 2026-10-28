@@ -67,7 +67,7 @@ public partial class OverlayWindow : Window
         UpdateLayout();
     }
 
-    public void UpdateSlots(IReadOnlyList<Slot> slots, GridRotation rotation)
+    public void UpdateSlots(IReadOnlyList<Slot> slots, GridRotation rotation, KeyboardSide side)
     {
         // 방향이 바뀔 때만 판을 갈아 끼운다.
         // 이 메서드는 레이어 키를 누를 때마다 불리는데, 매번 새 템플릿을 물리면
@@ -79,7 +79,7 @@ public partial class OverlayWindow : Window
             _appliedRotation = rotation;
         }
 
-        Cells.ItemsSource = SlotGrid.Cells(rotation)
+        Cells.ItemsSource = SlotGrid.Cells(rotation, side)
             .Select(cell => OverlayCell.From(cell, slots))
             .ToArray();
 

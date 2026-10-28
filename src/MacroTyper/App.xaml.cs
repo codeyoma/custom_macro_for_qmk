@@ -205,7 +205,7 @@ public partial class App : Application
     /// <summary>치트시트에 보이는 것들을 한꺼번에 다시 그린다.</summary>
     private void RefreshOverlay()
     {
-        _overlay.UpdateSlots(_store.Slots, _store.Rotation);
+        _overlay.UpdateSlots(_store.Slots, _store.Rotation, _store.Side);
         _overlay.UpdateMemo(_store.Memo);
     }
 

@@ -22,6 +22,7 @@ public sealed class SlotStore
     private readonly string _filePath;
     private Slot[] _slots = CreateEmptySet();
     private GridRotation _rotation = GridRotation.None;
+    private KeyboardSide _side = KeyboardSide.Right;
     private Hotkey _cheatHotkey = Hotkey.None;
     private string _memo = string.Empty;
 
@@ -37,6 +38,18 @@ public sealed class SlotStore
     {
         get => _rotation;
         set => _rotation = Enum.IsDefined(value) ? value : GridRotation.None;
+    }
+
+    /// <summary>
+    /// 꽂아 쓰는 PCB 가 어느 쪽 반쪽인가. 튀어나온 치트시트 키를 격자 어느 쪽에 그릴지가 여기서 정해진다.
+    /// 슬롯 번호와 문장은 그대로다.
+    ///
+    /// 이 항목이 없던 시절에는 오른쪽 반쪽만 있었으므로 모르는 값은 오른쪽으로 읽는다.
+    /// </summary>
+    public KeyboardSide Side
+    {
+        get => _side;
+        set => _side = Enum.IsDefined(value) ? value : KeyboardSide.Right;
     }
 
     /// <summary>
@@ -180,6 +193,7 @@ public sealed class SlotStore
 
         // 속성 setter 를 거쳐야 파일에 적힌 엉뚱한 값이 걸러진다.
         Rotation = parsed?.Rotation ?? GridRotation.None;
+        Side = parsed?.Side ?? KeyboardSide.Right;
         CheatHotkey = parsed?.CheatHotkey ?? Hotkey.None;
         Memo = parsed?.Memo ?? string.Empty;
 
@@ -196,6 +210,7 @@ public sealed class SlotStore
         var payload = new SlotFile(
             FormatVersion,
             _rotation,
+            _side,
             _cheatHotkey,
             _memo,
             CheckForUpdates,
@@ -270,8 +285,9 @@ public sealed class SlotStore
     // 예전 파일도 그대로 읽힌다. 빠진 값은 기본값이 된다.
     // checkForUpdates 만 bool? 이다. bool 로 두면 항목이 없는 예전 파일이 false 로 읽혀
     // 업데이트 확인이 조용히 꺼진다.
+    // side 는 기본값(0)이 곧 오른쪽이라 그럴 걱정이 없다.
     internal sealed record SlotFile(
-        int Version, GridRotation Rotation, Hotkey CheatHotkey, string? Memo,
+        int Version, GridRotation Rotation, KeyboardSide Side, Hotkey CheatHotkey, string? Memo,
         bool? CheckForUpdates, SlotEntry[] Slots);
 
     // action 과 shortcut 이 없는 예전 파일은 문장 슬롯으로 읽힌다.

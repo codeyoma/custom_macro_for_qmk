@@ -1,11 +1,15 @@
 #pragma once
 
-// 물리적 오른쪽 PCB를 단독으로 USB에 연결해 쓴다는 뜻이다.
+// 어느 쪽 PCB 를 단독으로 USB 에 꽂아 쓰는지. 빌드할 때 rules.mk 의 SIDE 로 고른다.
 //
-// 다만 keymap.c 가 왼쪽 자리와 오른쪽 자리에 같은 키코드를 깔아 두므로
-// 이 설정이 없어도, 반대로 왼쪽 PCB를 꽂아도 똑같이 동작한다.
-// 예전에는 이 한 줄에 24키 전체가 걸려 있었다. 이제는 걸려 있지 않다.
-#define MASTER_RIGHT
+// QMK 는 USB 가 꽂힌 쪽을 기본으로 왼쪽으로 본다. MASTER_RIGHT 가 그걸 오른쪽으로 뒤집는다.
+// Helix 에는 좌우를 알려 주는 핀이 없어서 펌웨어가 스스로 알 길이 없다.
+//
+// 반대쪽 PCB 에 구우면 키는 다 눌리지만 좌우가 거울처럼 뒤집힌다.
+// 두 반쪽이 같은 기판을 뒤집어 쓴 것이라, 바깥쪽 끝 열이 늘 같은 매트릭스 열이기 때문이다.
+#ifndef MACRO_SIDE_LEFT
+#    define MASTER_RIGHT
+#endif
 
 // 반대쪽 반쪽은 아예 연결하지 않는다.
 // 기본값(10회 실패 후 연결 끊김 판정)은 부팅 직후 잠깐 헛스캔을 돌게 하므로
@@ -15,7 +19,8 @@
 
 // --- LED ---
 //
-// 켜 두면 색이 계속 흐르는 모드로 시작한다.
+// 지금은 rules.mk 에서 RGB_MATRIX_ENABLE = no 로 꺼 두어 아래 값들이 쓰이지 않는다.
+// 다시 켜면(yes) 색이 계속 흐르는 모드로 시작한다.
 // 애니메이션 목록은 keyboards/helix/info.json 에 이미 정의되어 있다
 // (breathing, cycle_left_right, cycle_pinwheel, multisplash, solid_splash).
 //

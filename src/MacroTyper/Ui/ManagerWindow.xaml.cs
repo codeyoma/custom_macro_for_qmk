@@ -27,8 +27,14 @@ public partial class ManagerWindow : Window
     /// <summary>슬롯에 넣을 키 조합을 잡는 중.</summary>
     private bool _capturingSlotShortcut;
 
-    /// <summary>슬롯을 불러오는 동안. 라디오 변경 이벤트가 편집 중인 값을 건드리지 않게 막는다.</summary>
+    /// <summary>
+    /// 슬롯을 불러오는 동안. 라디오 변경 이벤트가 편집 중인 값을 건드리지 않게 막고,
+    /// 불러온 문장을 사용자가 친 것으로 오해해 전각을 바꾸지 않게 막는다.
+    /// </summary>
     private bool _loadingSlot;
+
+    /// <summary>붙여넣는 중. 붙여넣은 전각은 사용자가 고른 값일 수 있어 저절로 바꾸지 않는다.</summary>
+    private bool _pasting;
 
     private Hotkey _editingShortcut = Hotkey.None;
 
@@ -57,6 +63,9 @@ public partial class ManagerWindow : Window
         RefreshHotkeyButton();
 
         MemoBox.Text = _store.Memo;
+
+        DataObject.AddPastingHandler(LabelBox, OnEditorPasting);
+        DataObject.AddPastingHandler(TextBoxContent, OnEditorPasting);
     }
 
     // --- 설정 백업 ---
@@ -246,11 +255,14 @@ public partial class ManagerWindow : Window
             _appliedRotation = rotation;
         }
 
-        SlotCells.ItemsSource = SlotGrid.Cells(rotation)
+        SlotCells.ItemsSource = SlotGrid.Cells(rotation, _store.Side)
             .Select(cell => OverlayCell.From(cell, _store.Slots))
             .ToArray();
 
         RotateButton.Content = $"방향 {(int)rotation}°";
+        SideButton.Content = _store.Side == KeyboardSide.Left ? "왼쪽 PCB" : "오른쪽 PCB";
+        LeftSideItem.IsChecked = _store.Side == KeyboardSide.Left;
+        RightSideItem.IsChecked = _store.Side == KeyboardSide.Right;
     }
 
     // --- 치트시트를 여는 전역 단축키 ---
@@ -432,6 +444,37 @@ public partial class ManagerWindow : Window
         _slotsChanged();
     }
 
+    private void OnToggleSide(object sender, RoutedEventArgs e) => ApplySide(SlotGrid.Other(_store.Side));
+
+    private void OnChooseLeftSide(object sender, RoutedEventArgs e) => ApplySide(KeyboardSide.Left);
+
+    private void OnChooseRightSide(object sender, RoutedEventArgs e) => ApplySide(KeyboardSide.Right);
+
+    /// <summary>
+    /// 꽂아 쓰는 PCB 쪽을 바꾼다. 튀어나온 치트시트 키가 격자 반대편으로 옮겨 간다.
+    /// 슬롯 번호와 등록해 둔 문장은 그대로다.
+    /// </summary>
+    private void ApplySide(KeyboardSide side)
+    {
+        if (side == _store.Side)
+            return;
+
+        _store.Side = side;
+
+        try
+        {
+            _store.Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 저장에 실패해도 이번 실행 동안은 바뀐 쪽으로 보여 준다.
+            HintText.Text = "PCB 방향을 저장하지 못했습니다";
+        }
+
+        RefreshGrid();
+        _slotsChanged();
+    }
+
     private void OnSlotClicked(object sender, RoutedEventArgs e)
     {
         // 치트시트 키 자리와 빈틈은 고칠 내용이 없다.
@@ -445,15 +488,16 @@ public partial class ManagerWindow : Window
         Slot slot = _store[index];
 
         EditingHeader.Text = $"슬롯 {index + 1} 편집";
-        LabelBox.Text = slot.Label;
-        TextBoxContent.Text = slot.Text;
         AppendEnterBox.IsChecked = slot.AppendEnter;
 
         _editingShortcut = slot.Shortcut;
         RefreshSlotShortcutButton();
 
-        // 라디오 변경 이벤트가 편집 중인 값을 건드리지 않도록 잠근 채로 맞춘다.
+        // 변경 이벤트들이 불러온 값을 편집으로 오해하지 않도록 잠근 채로 맞춘다.
+        // 저장된 문장은 전각이 섞여 있어도 그대로 불러온다. 바꿀지는 경고를 보고 사용자가 정한다.
         _loadingSlot = true;
+        LabelBox.Text = slot.Label;
+        TextBoxContent.Text = slot.Text;
         TextModeRadio.IsChecked = slot.Action == SlotAction.Text;
         ShortcutModeRadio.IsChecked = slot.Action == SlotAction.Shortcut;
         _loadingSlot = false;
@@ -469,6 +513,112 @@ public partial class ManagerWindow : Window
         TestButton.IsEnabled = true;
 
         HintText.Text = string.Empty;
+    }
+
+    // --- 전각 영문·기호·띄어쓰기 ---
+    //
+    // 한글 IME 가 전각 모드(Shift+Space)인 채로 치면 콤마·띄어쓰기·영문이 전각으로 들어간다.
+    // 한글은 그대로라 치는 사람은 모르고 저장하고, 우리는 저장된 값을 그대로 보내므로
+    // 받는 앱에서 글꼴이 다르고 간격이 넓은 글자로 나온다.
+    //
+    // 그래서 치는 순간 들어온 전각만 반각으로 되돌린다. 사용자가 뜻한 값은 거의 언제나 반각이다.
+    // 불러온 값과 붙여넣은 값은 고른 것일 수 있어 건드리지 않고, 경고와 버튼으로 묻는다.
+
+    private void OnEditorPasting(object sender, DataObjectPastingEventArgs e)
+    {
+        _pasting = true;
+
+        // 붙여넣기가 취소되어 TextChanged 가 오지 않아도 다음 타이핑까지 표시가 남지 않게 한다.
+        Dispatcher.InvokeAsync(() => _pasting = false, DispatcherPriority.Background);
+    }
+
+    private void OnEditorTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox box)
+            return;
+
+        if (!_loadingSlot && !_pasting)
+        {
+            var typed = e.Changes
+                .Where(change => change.AddedLength > 0)
+                .Select(change => (change.Offset, change.AddedLength))
+                .ToArray();
+
+            // IME 가 고치는 중인 문서를 그 안에서 다시 고치면 조합이 깨질 수 있다.
+            // 이 변경이 끝난 직후, 다음 키 입력보다 먼저 되돌린다.
+            if (typed.Any(range => ContainsFullWidth(box.Text, range.Offset, range.AddedLength)))
+                Dispatcher.InvokeAsync(() => RestoreHalfWidth(box, typed), DispatcherPriority.Send);
+        }
+
+        if (box == TextBoxContent)
+            RefreshFullWidthWarning();
+    }
+
+    private static bool ContainsFullWidth(string text, int offset, int length)
+    {
+        int end = Math.Min(text.Length, offset + length);
+
+        for (int i = offset; i < end; i++)
+        {
+            if (FullWidth.IsFullWidth(text[i]))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>방금 들어온 범위 안의 전각만 반각으로 바꾼다. 글자 수가 같아 커서와 선택은 그 자리에 둔다.</summary>
+    private static void RestoreHalfWidth(TextBox box, IEnumerable<(int Offset, int Length)> ranges)
+    {
+        int selectionStart = box.SelectionStart;
+        int selectionLength = box.SelectionLength;
+
+        foreach ((int offset, int length) in ranges)
+        {
+            // 그 사이 글이 줄었으면 남은 만큼만 본다.
+            int start = Math.Min(offset, box.Text.Length);
+            int count = Math.Min(length, box.Text.Length - start);
+
+            if (count <= 0 || !ContainsFullWidth(box.Text, start, count))
+                continue;
+
+            box.Select(start, count);
+            box.SelectedText = FullWidth.ToHalfWidth(box.SelectedText);
+        }
+
+        box.Select(selectionStart, selectionLength);
+    }
+
+    private void RefreshFullWidthWarning()
+    {
+        string text = TextBoxContent.Text;
+        int count = FullWidth.Count(text);
+
+        FullWidthWarning.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        if (count == 0)
+            return;
+
+        // 전각 띄어쓰기는 눈에 보이지 않으니 이름으로 적는다.
+        string samples = string.Join(" ", text
+            .Where(FullWidth.IsFullWidth)
+            .Distinct()
+            .Take(5)
+            .Select(c => c == '　' ? "전각 띄어쓰기" : c.ToString()));
+
+        FullWidthWarningText.Text =
+            $"전각 문자 {count}개가 섞여 있습니다 ({samples}). 받는 프로그램에서 글꼴과 간격이 달라 보입니다";
+    }
+
+    private void OnConvertToHalfWidth(object sender, RoutedEventArgs e)
+    {
+        int caret = TextBoxContent.CaretIndex;
+
+        TextBoxContent.Text = FullWidth.ToHalfWidth(TextBoxContent.Text);
+        TextBoxContent.CaretIndex = caret;
+        TextBoxContent.Focus();
+
+        HintText.Text = "반각으로 바꿨습니다. 저장을 눌러야 적용됩니다";
     }
 
     // --- 문장 / 키 조합 고르기 ---

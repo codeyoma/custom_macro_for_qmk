@@ -23,13 +23,26 @@
                         ToolTip="매크로패드를 돌려 놓은 방향에 맞춰 격자를 90도씩 돌립니다"
                         Click="OnRotate" />
 
-                <!-- 설정 백업. 자주 쓰는 기능이 아니라 메뉴로 접어 둔다. -->
+                <!-- 왼쪽 반쪽과 오른쪽 반쪽은 맨 아랫줄이 튀어나온 쪽이 반대다. -->
+                <Button x:Name="SideButton" DockPanel.Dock="Right"
+                        Content="오른쪽 PCB" Margin="0,0,10,0" Padding="12,4" Height="28"
+                        VerticalAlignment="Center"
+                        ToolTip="꽂아 쓰는 PCB 가 왼쪽 반쪽인지 오른쪽 반쪽인지 고릅니다. 펌웨어도 같은 쪽으로 구워야 합니다"
+                        Click="OnToggleSide" />
+
+                <!--
+                    설정 백업. 자주 쓰는 기능이 아니라 메뉴로 접어 둔다.
+                    PCB 쪽은 위 버튼과 같은 설정이다. 설정을 찾는 사람이 여기서도 고를 수 있게 둔다.
+                -->
                 <Button x:Name="SettingsButton" DockPanel.Dock="Right"
                         Content="설정 ▾" Margin="0,0,10,0" Padding="10,4" Height="28"
                         VerticalAlignment="Center"
                         Click="OnSettingsClicked">
                     <Button.ContextMenu>
                         <ContextMenu>
+                            <MenuItem x:Name="LeftSideItem" Header="왼쪽 PCB 사용" Click="OnChooseLeftSide" />
+                            <MenuItem x:Name="RightSideItem" Header="오른쪽 PCB 사용" Click="OnChooseRightSide" />
+                            <Separator />
                             <MenuItem Header="JSON 으로 내보내기" Click="OnExport" />
                             <MenuItem Header="JSON 에서 가져오기" Click="OnImport" />
                             <Separator />
@@ -100,7 +113,8 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="라벨 (치트시트에 표시)" FontSize="11" Foreground="#5F5E5A" Margin="0,0,0,4" />
-                        <TextBox x:Name="LabelBox" Height="30" VerticalContentAlignment="Center" Padding="8,0" IsEnabled="False" />
+                        <TextBox x:Name="LabelBox" Height="30" VerticalContentAlignment="Center" Padding="8,0" IsEnabled="False"
+                                 TextChanged="OnEditorTextChanged" />
                     </StackPanel>
 
                     <StackPanel x:Name="TextPane" Grid.Column="2">
@@ -113,7 +127,19 @@
                                  VerticalScrollBarVisibility="Auto"
                                  FontFamily="Consolas, D2Coding, monospace"
                                  Padding="8,6"
-                                 IsEnabled="False" />
+                                 IsEnabled="False"
+                                 TextChanged="OnEditorTextChanged" />
+
+                        <!--
+                            전각 영문·기호·띄어쓰기가 섞여 있을 때만 뜬다.
+                            불러온 값과 붙여넣은 값은 사용자가 고른 것일 수 있어 저절로 바꾸지 않고 여기서 묻는다.
+                        -->
+                        <DockPanel x:Name="FullWidthWarning" Margin="0,6,0,0" Visibility="Collapsed">
+                            <Button DockPanel.Dock="Right" Content="반각으로 바꾸기" Padding="10,2" Height="24"
+                                    Click="OnConvertToHalfWidth" />
+                            <TextBlock x:Name="FullWidthWarningText" FontSize="11" Foreground="#A32D2D"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0" />
+                        </DockPanel>
                     </StackPanel>
 
                     <StackPanel x:Name="ShortcutPane" Grid.Column="2" Visibility="Collapsed">

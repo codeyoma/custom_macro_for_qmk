@@ -254,6 +254,62 @@ public class SlotStoreTests : IDisposable
         Assert.Equal(GridRotation.None, store.Rotation);
     }
 
+    // --- 꽂아 쓰는 PCB 가 어느 쪽 반쪽인가 ---
+
+    [Fact]
+    public void Side_ByDefault_IsRight()
+    {
+        Assert.Equal(KeyboardSide.Right, LoadedStore().Side);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsSide()
+    {
+        var store = LoadedStore();
+        store.Side = KeyboardSide.Left;
+        store.Save();
+
+        Assert.Equal(KeyboardSide.Left, LoadedStore().Side);
+    }
+
+    /// <summary>
+    /// 이 항목이 생기기 전의 파일은 모두 오른쪽 반쪽을 쓰던 사람의 것이다.
+    /// 업데이트했다고 치트시트 키가 반대편으로 옮겨 가면 안 된다.
+    /// </summary>
+    [Fact]
+    public void Load_WithoutSideField_FallsBackToRight()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "rotation": 90, "slots": [ { "index": 0, "label": "하나", "text": "본문", "appendEnter": false } ] }
+            """);
+
+        var store = LoadedStore();
+
+        Assert.Equal(KeyboardSide.Right, store.Side);
+        Assert.Equal(GridRotation.Clockwise90, store.Rotation);
+        Assert.Equal("하나", store[0].Label);
+    }
+
+    [Fact]
+    public void Load_WithUnknownSideValue_FallsBackToRight()
+    {
+        File.WriteAllText(_path, """
+            { "version": 1, "side": 7, "slots": [] }
+            """);
+
+        Assert.Equal(KeyboardSide.Right, LoadedStore().Side);
+    }
+
+    [Fact]
+    public void Side_SetToUnknownValue_FallsBackToRight()
+    {
+        var store = LoadedStore();
+
+        store.Side = (KeyboardSide)42;
+
+        Assert.Equal(KeyboardSide.Right, store.Side);
+    }
+
     // --- 내보내기와 가져오기 ---
 
     [Fact]
@@ -265,6 +321,7 @@ public class SlotStoreTests : IDisposable
         store.Set(new Slot(2, "주소", "서울특별시", true));
         store.Memo = "메모 내용";
         store.Rotation = GridRotation.Clockwise90;
+        store.Side = KeyboardSide.Left;
         store.ExportTo(exported);
 
         var loaded = new SlotStore(exported);
@@ -274,6 +331,7 @@ public class SlotStoreTests : IDisposable
         Assert.True(loaded[2].AppendEnter);
         Assert.Equal("메모 내용", loaded.Memo);
         Assert.Equal(GridRotation.Clockwise90, loaded.Rotation);
+        Assert.Equal(KeyboardSide.Left, loaded.Side);
     }
 
     /// <summary>내보내기는 원래 쓰던 파일을 건드리지 않는다.</summary>

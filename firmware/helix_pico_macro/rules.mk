@@ -5,6 +5,16 @@
 # 이 프로그램의 핵심. 없으면 키보드가 PC로 아무 신호도 보내지 못한다.
 RAW_ENABLE = yes
 
+# 꽂아 쓰는 PCB 가 어느 쪽 반쪽인가. 기본은 처음부터 써 온 오른쪽이다.
+#   qmk compile -kb helix/pico -km eunsun -e SIDE=left
+# 펌웨어 스스로는 알 길이 없으니 잘못 고르면 좌우가 거울처럼 뒤집힌다. config.h 참고.
+SIDE ?= right
+ifeq ($(strip $(SIDE)),left)
+    OPT_DEFS += -DMACRO_SIDE_LEFT
+else ifneq ($(strip $(SIDE)),right)
+    $(error SIDE 는 left 또는 right 여야 합니다. 받은 값: $(SIDE))
+endif
+
 # VIA 와는 공존할 수 없다.
 # quantum/via.c 의 raw_hid_receive() 는 __attribute__((weak)) 가 아니라서
 # keymap.c 의 같은 이름 함수와 링크 단계에서 충돌한다(multiple definition).
@@ -17,8 +27,14 @@ MOUSEKEY_ENABLE = no
 EXTRAKEY_ENABLE = no
 CONSOLE_ENABLE  = no
 
-# LED 애니메이션을 쓴다.
-RGB_MATRIX_ENABLE = yes
+# LED 는 쓰지 않는다. 펌웨어가 LED 로 데이터를 한 번도 보내지 않는다.
+#
+# LED 는 체인으로 이어져 앞 LED 가 넘겨준 데이터를 받는다. 체인 중간 납땜이 불량하면
+# 그 뒤쪽이 깨진 데이터를 계속 받아 미친 듯이 깜빡인다. 아랫줄이 체인의 맨 끝이라 늘 거기서 터진다.
+# 문장 삽입 전용 매크로패드에 애니메이션이 꼭 필요하지 않고, 32U4 플래시도 그만큼 아낀다.
+#
+# 되살리려면 yes 로 바꾼다. 애니메이션 기본값은 config.h 에 남겨 두었다.
+RGB_MATRIX_ENABLE = no
 
 # OLED 는 끈 채로 둔다. 용량 문제만이 아니다.
 # keyboards/helix/helix.c 의 oled_task_kb() 가 RGB_MATRIX 가드 없이

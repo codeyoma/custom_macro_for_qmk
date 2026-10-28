@@ -16,6 +16,22 @@ public enum GridRotation
     CounterClockwise90 = 270,
 }
 
+/// <summary>
+/// 꽂아 쓰는 PCB 가 Helix Pico 의 어느 쪽 반쪽인가.
+///
+/// 두 반쪽은 같은 기판을 뒤집어 쓴 것이라 맨 아랫줄이 튀어나온 방향이 서로 반대다.
+/// 튀어나온 키는 늘 안쪽, 반대편 반쪽을 바라보는 쪽에 있다.
+/// 펌웨어도 같은 쪽으로 구워야 손에 닿는 키와 화면이 맞는다.
+/// </summary>
+public enum KeyboardSide
+{
+    /// <summary>오른쪽 반쪽. 맨 아랫줄이 왼쪽으로 튀어나와 있다. 이 설정이 없던 시절의 배치다.</summary>
+    Right = 0,
+
+    /// <summary>왼쪽 반쪽. 맨 아랫줄이 오른쪽으로 튀어나와 있다.</summary>
+    Left = 1,
+}
+
 /// <summary>격자 한 자리에 무엇이 놓이는가.</summary>
 public enum GridCellKind
 {
@@ -44,13 +60,20 @@ public readonly record struct GridCell(GridCellKind Kind, int SlotIndex)
 /// <summary>
 /// 매크로패드의 물리 배치를 화면 격자로 옮긴다.
 ///
-/// 실물은 맨 아랫줄만 한 칸 더 왼쪽으로 튀어나와 있다. 그 자리가 치트시트 키다.
-/// 위 세 줄의 같은 열은 키가 없는 빈틈이다.
+/// 실물은 맨 아랫줄만 한 칸 더 안쪽으로 튀어나와 있다. 그 자리가 치트시트 키다.
+/// 위 세 줄의 같은 열은 키가 없는 빈틈이다. 오른쪽 반쪽은 왼쪽으로 튀어나와 있고
 ///
 ///        [1] [2] [3] [4] [5] [6]
 ///        [7] [8] [9] [10][11][12]
 ///        [13][14][15][16][17][18]
 ///   [치트][19][20][21][22][23][24]
+///
+/// 왼쪽 반쪽은 그 거울상이다. 번호는 어느 쪽이든 왼쪽 위부터 매긴다.
+///
+///   [1] [2] [3] [4] [5] [6]
+///   [7] [8] [9] [10][11][12]
+///   [13][14][15][16][17][18]
+///   [19][20][21][22][23][24][치트]
 ///
 /// 매크로패드를 돌려 놓으면 화면 격자도 같이 돌아야 눈에 보이는 자리와 손이 맞는다.
 /// 슬롯 번호 자체는 절대 바뀌지 않는다. 키보드가 보내는 인덱스는 그대로고,
@@ -58,11 +81,11 @@ public readonly record struct GridCell(GridCellKind Kind, int SlotIndex)
 /// </summary>
 public static class SlotGrid
 {
-    /// <summary>돌리지 않았을 때의 격자. 맨 왼쪽 열을 포함한 크기다.</summary>
+    /// <summary>돌리지 않았을 때의 격자. 튀어나온 열을 포함한 크기다.</summary>
     public const int BaseRows = 4;
     public const int BaseColumns = 7;
 
-    /// <summary>한 줄에 놓이는 문장 슬롯 수. 맨 왼쪽 열은 여기에 들어가지 않는다.</summary>
+    /// <summary>한 줄에 놓이는 문장 슬롯 수. 튀어나온 열은 여기에 들어가지 않는다.</summary>
     public const int SlotsPerRow = 6;
 
     public static bool IsQuarterTurn(GridRotation rotation) =>
@@ -76,7 +99,7 @@ public static class SlotGrid
     /// 화면 왼쪽 위부터 차례로 놓을 자리들. 길이는 항상 행×열이고,
     /// 그 안에 문장 슬롯 24개가 정확히 한 번씩 들어 있다.
     /// </summary>
-    public static IReadOnlyList<GridCell> Cells(GridRotation rotation)
+    public static IReadOnlyList<GridCell> Cells(GridRotation rotation, KeyboardSide side)
     {
         (int rows, int columns) = SizeFor(rotation);
         var cells = new GridCell[rows * columns];
@@ -85,7 +108,7 @@ public static class SlotGrid
         {
             for (int column = 0; column < columns; column++)
             {
-                cells[(row * columns) + column] = CellAt(rotation, row, column);
+                cells[(row * columns) + column] = CellAt(rotation, side, row, column);
             }
         }
 
@@ -93,7 +116,7 @@ public static class SlotGrid
     }
 
     /// <summary>회전된 격자의 (row, column) 자리에 놓일 것.</summary>
-    public static GridCell CellAt(GridRotation rotation, int row, int column)
+    public static GridCell CellAt(GridRotation rotation, KeyboardSide side, int row, int column)
     {
         // 화면 좌표를 원래 배치의 좌표로 되돌린 뒤 무엇이 놓이는지 본다.
         (int baseRow, int baseColumn) = rotation switch
@@ -104,20 +127,28 @@ public static class SlotGrid
             _ => (row, column),
         };
 
-        return PhysicalCellAt(baseRow, baseColumn);
+        return PhysicalCellAt(side, baseRow, baseColumn);
     }
 
     /// <summary>돌리지 않은 실물 배치에서 (row, column) 자리에 놓인 것.</summary>
-    private static GridCell PhysicalCellAt(int row, int column)
+    private static GridCell PhysicalCellAt(KeyboardSide side, int row, int column)
     {
-        if (column == 0)
+        int protrudingColumn = side == KeyboardSide.Left ? BaseColumns - 1 : 0;
+
+        if (column == protrudingColumn)
         {
-            // 맨 왼쪽 열은 아랫줄에만 키가 있다. 위 세 줄은 빈틈이다.
+            // 튀어나온 열은 아랫줄에만 키가 있다. 위 세 줄은 빈틈이다.
             return row == BaseRows - 1 ? GridCell.CheatKey : GridCell.Blank;
         }
 
-        return GridCell.Slot((row * SlotsPerRow) + (column - 1));
+        // 오른쪽 반쪽은 튀어나온 열이 맨 앞에 끼어 있으니 한 칸 당겨서 센다.
+        int slotColumn = side == KeyboardSide.Left ? column : column - 1;
+        return GridCell.Slot((row * SlotsPerRow) + slotColumn);
     }
+
+    /// <summary>반대쪽 반쪽. 버튼 하나로 오간다.</summary>
+    public static KeyboardSide Other(KeyboardSide side) =>
+        side == KeyboardSide.Left ? KeyboardSide.Right : KeyboardSide.Left;
 
     /// <summary>다음 90도. 계속 누르면 한 바퀴 돈다.</summary>
     public static GridRotation Next(GridRotation rotation) => rotation switch

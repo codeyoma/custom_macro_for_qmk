@@ -1,6 +1,6 @@
-// Helix Pico 한쪽(오른쪽 PCB) 단독 매크로패드 키맵.
+// Helix Pico 한쪽 PCB 단독 매크로패드 키맵. 왼쪽 반쪽과 오른쪽 반쪽 어느 쪽이든 쓸 수 있다.
 //
-// 물리 키 25개 중 24개를 문장 슬롯에, 맨 아랫줄 마지막 1개를 치트시트 레이어 키에 쓴다.
+// 물리 키 25개 중 24개를 문장 슬롯에, 맨 아랫줄에서 튀어나온 1개를 치트시트 레이어 키에 쓴다.
 // 키보드는 슬롯 인덱스만 보내고 문장 내용은 전혀 모른다.
 // 문장을 바꿔도 펌웨어를 다시 구울 필요가 없다.
 //
@@ -9,8 +9,9 @@
 // 그리고 qmk new-keymap 이 만들어 둔 keymap.json 은 반드시 지운다.
 // keymap.json 이 남아 있으면 빌드가 JSON 경로를 타서 이 파일이 무시된다.
 //
-// 빌드:  qmk compile -kb helix/pico -km eunsun
-// 플래시: qmk flash   -kb helix/pico -km eunsun
+// 빌드:  qmk compile -kb helix/pico -km eunsun                (오른쪽 PCB)
+//        qmk compile -kb helix/pico -km eunsun -e SIDE=left    (왼쪽 PCB)
+// 플래시: qmk flash   -kb helix/pico -km eunsun [-e SIDE=left]
 
 #include QMK_KEYBOARD_H
 #include "raw_hid.h"
@@ -32,23 +33,30 @@ enum custom_keycodes {
 // LAYOUT 인자는 50개다. 행별로 왼쪽 6 + 오른쪽 6, 마지막 행만 왼쪽 7 + 오른쪽 7.
 // (keyboard.json 확인: 인자 0~5 -> matrix[0][0..5], 인자 6~11 -> matrix[4][5..0])
 //
-// 왼쪽 자리와 오른쪽 자리에 똑같은 키코드를 넣는다. 실수가 아니라 의도다.
+// 왼쪽 반쪽 자리에는 왼쪽 PCB 용 배치를, 오른쪽 반쪽 자리에는 오른쪽 PCB 용 배치를 넣는다.
+// 한쪽만 연결하는 한 반대편 자리는 스캔되지 않는다. 어느 자리를 스캔할지는
+// config.h 의 핸디드니스 설정(빌드할 때 SIDE 로 고른다)이 정한다.
 //
-// QMK 는 USB 가 꽂힌 쪽을 왼쪽으로 볼지 오른쪽으로 볼지를 핸디드니스 설정으로 정하는데,
-// 한쪽만 놓고 그 판정이 어긋나면 전부 KC_NO 자리를 스캔하게 되어 24키가 통째로 죽는다.
-// 양쪽에 같은 것을 깔아 두면 어느 쪽으로 잡히든 동일하게 동작한다.
-// 한쪽만 연결하는 한 반대편 자리는 스캔되지 않으므로 중복은 아무 문제가 없다.
+// 두 반쪽은 같은 기판을 뒤집어 쓴 것이라 맨 아랫줄이 튀어나온 방향이 반대다.
+// 튀어나온 키는 늘 안쪽에 있고, 어느 쪽이든 그 키가 치트시트 키다.
+// 나머지 24키는 6열 4행으로 반듯하게 놓이고 번호는 왼쪽 위부터 매긴다.
+//
+//   왼쪽 PCB                         오른쪽 PCB
+//    1  2  3  4  5  6                     1  2  3  4  5  6
+//    7  8  9 10 11 12                     7  8  9 10 11 12
+//   13 14 15 16 17 18                    13 14 15 16 17 18
+//   19 20 21 22 23 24 [치트]       [치트] 19 20 21 22 23 24
 //
 // 각 반쪽 안에서의 순서는 물리적으로 왼쪽부터다. LAYOUT 이 열 역순을 알아서 처리한다.
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     // 평소 상태. 24개 키가 그대로 문장 1~24번이다.
-    // 맨 아랫줄 왼쪽 끝이 치트시트 키다. 나머지 6개가 19~24번.
+    // 맨 아랫줄에서 튀어나온 키가 치트시트 키다. 나머지 6개가 19~24번.
     [LAYER_BASE] = LAYOUT(
         MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,   MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,
         MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,   MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,
         MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,   MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,
-        MO(LAYER_CHEAT), MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24,
+        MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, MO(LAYER_CHEAT),
         MO(LAYER_CHEAT), MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24
     ),
 
@@ -58,7 +66,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,   MACRO_01, MACRO_02, MACRO_03, MACRO_04, MACRO_05, MACRO_06,
         MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,   MACRO_07, MACRO_08, MACRO_09, MACRO_10, MACRO_11, MACRO_12,
         MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,   MACRO_13, MACRO_14, MACRO_15, MACRO_16, MACRO_17, MACRO_18,
-        KC_TRNS, MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24,
+        MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24, KC_TRNS,
         KC_TRNS, MACRO_19, MACRO_20, MACRO_21, MACRO_22, MACRO_23, MACRO_24
     ),
 };
